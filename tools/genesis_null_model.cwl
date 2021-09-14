@@ -65,6 +65,11 @@ requirements:
             return "covars '" + inputs.covariates + "'"
           else return ""
         }
+        ${
+          if(inputs.sample_include_file) 
+            return "sample_include_file '" + inputs.sample_include_file.path + "'"
+          else return ""
+        }
         out_phenotype_file $(inputs.out_prefix)_phenotypes.Rdata
     - entryname: script.sh
       entry: |
@@ -123,6 +128,9 @@ inputs:
     type: File
   relatedness_matrix_file:
     doc: RData or GDS file with a kinship matrix or GRM.
+    type: File?
+  sample_include_file:
+    doc: An RData object containing a vector of sample.id to include. 
     type: File?
 
 outputs:

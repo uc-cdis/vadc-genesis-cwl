@@ -17,6 +17,7 @@ inputs:
   pca_file: File?
   phenotype_file: File
   relatedness_matrix_file: File?
+  sample_include_file: File?
 
 outputs:
   null_model_files_directory:
@@ -43,4 +44,5 @@ steps:
       pca_file: pca_file
       phenotype_file: phenotype_file
       relatedness_matrix_file: relatedness_matrix_file
+      sample_include_file: sample_include_file
     out: [ null_model_files, null_model_phenotype, reports ]

@@ -46,6 +46,10 @@ inputs:
     doc: RData or GDS file with a kinship matrix or GRM.
     type: File?
 
+  sample_include_file: 
+    doc: RData object containing a vector of samples to include. 
+    type: File?
+
   gds_files:
     label: GDS file
     doc: List of GDS files produced by VCF2GDS tool.
@@ -96,6 +100,7 @@ steps:
       pca_file: pca_file
       phenotype_file: phenotype_file
       relatedness_matrix_file: relatedness_matrix_file
+      sample_include_file: sample_include_file
     out: [ null_model_files_directory, null_model_phenotype_file, null_model_reports ] 
 
   run_single_association_wf:
@@ -112,7 +117,7 @@ steps:
              var suffix = "_reportonly.RData";
              for (var i=0; i < self.listing.length; i++) {
                var curr = self.listing[i];
-               var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) !== -1;
+               var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) === -1;
                if (is_good) {
                  fil = curr;
                  break;
