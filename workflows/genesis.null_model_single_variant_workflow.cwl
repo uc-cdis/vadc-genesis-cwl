@@ -5,6 +5,7 @@ requirements:
   - class: InlineJavascriptRequirement
   - class: ScatterFeatureRequirement
   - class: StepInputExpressionRequirement 
+  - class: SubworkflowFeatureRequirement
 
 inputs:
   n_pcs:
@@ -65,12 +66,21 @@ inputs:
     default: 10000
 
 outputs:
-  data:
+  null_model_output_dir:
+    type: Directory
+    outputSource: run_null_model/null_model_files_directory
+  null_model_phenotype:
+    type: File
+    outputSource: run_null_model/null_model_phenotype_file
+  null_model_report_dir:
+    type: Directory
+    outputSource: run_null_model/null_model_reports
+  single_assoc_gwas_data:
     type: File[]
-    outputSource: combine_shards/combined
-  plots:
+    outputSource: run_single_association_wf/data
+  single_assoc_gwas_plots:
     type: File[]
-    outputSource: plot/plots
+    outputSource: run_single_association_wf/plots
 
 steps:
   run_null_model:
@@ -80,7 +90,7 @@ steps:
       covariates: covariates
       out_prefix:
         source: out_prefix
-        valueFrom: $(self + '_null_model_')
+        valueFrom: $(self + '_null_model')
       outcome: outcome
       outcome_is_binary: outcome_is_binary
       pca_file: pca_file
@@ -95,9 +105,24 @@ steps:
       genome_build: genome_build
       n_segments: n_segments
       null_model_file:
+        source: run_null_model/null_model_files_directory
+        valueFrom: |
+          ${
+             var fil;
+             var suffix = "_reportonly.RData";
+             for (var i=0; i < self.listing.length; i++) {
+               var curr = self.listing[i];
+               var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) !== -1;
+               if (is_good) {
+                 fil = curr;
+                 break;
+               }
+             }
+             return fil;
+           }
       out_prefix:
         source: out_prefix
-        valueFrom: $(self + '_single_assoc_')
+        valueFrom: $(self + '_single_assoc')
       phenotype_file:
         source: run_null_model/null_model_phenotype_file
       segment_length: segment_length
