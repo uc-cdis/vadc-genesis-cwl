@@ -43,34 +43,35 @@ requirements:
   InitialWorkDirRequirement:
     listing:
     - entryname: null_model.config
-      entry: |
-        # From https://github.com/UW-GAC/analysis_pipeline#null-model
-        out_prefix $(inputs.out_prefix)
-        phenotype_file $(inputs.phenotype_file.path)
-        outcome $(inputs.outcome)
-        binary $(inputs.outcome_is_binary)
-        n_pcs $(inputs.n_pcs)
+      entry: |-
         ${
-          if(inputs.pca_file) 
-            return "pca_file " + inputs.pca_file.path
-          else return ""
-        }
-        ${
-          if(inputs.relatedness_matrix_file) 
-            return "relatedness_matrix_file " + inputs.relatedness_matrix_file.path
-          else return ""
-        }
-        ${
-          if(inputs.covariates) 
-            return "covars '" + inputs.covariates + "'"
-          else return ""
-        }
-        ${
-          if(inputs.sample_include_file) 
-            return "sample_include_file '" + inputs.sample_include_file.path + "'"
-          else return ""
-        }
-        out_phenotype_file $(inputs.out_prefix)_phenotypes.Rdata
+           var arg = [];
+
+           arg.push('out_prefix ' + inputs.out_prefix);
+           arg.push('phenotype_file ' + inputs.phenotype_file.path);
+           arg.push('outcome ' + inputs.outcome);
+           arg.push('binary ' + inputs.outcome_is_binary);
+           arg.push('n_pcs ' + inputs.n_pcs);
+
+           if(inputs.pca_file){
+             arg.push("pca_file " + inputs.pca_file.path);
+           }
+
+           if(inputs.relatedness_matrix_file){
+             arg.push("relatedness_matrix_file " + inputs.relatedness_matrix_file.path);
+           }
+
+           if(inputs.covariates){
+             arg.push("covars '" + inputs.covariates + "'");
+           }
+
+           if(inputs.sample_include_file) {
+             arg.push("sample_include_file " + inputs.sample_include_file.path);
+           }
+           arg.push('out_phenotype_file ' + inputs.out_prefix + '_phenotypes.Rdata');
+           return arg.join('\n');
+         } 
+
     - entryname: script.sh
       entry: |
         set -xe
@@ -91,7 +92,9 @@ requirements:
   InlineJavascriptRequirement: {}
   ResourceRequirement:
     coresMin: 2
-    ramMin: $(Math.round(2000 + inputs.phenotype_file.size/1000000))
+    coresMax: 2
+    ramMin: 2000
+    ramMax: 2000
 
 inputs:
   n_pcs:

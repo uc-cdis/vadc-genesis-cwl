@@ -8,7 +8,9 @@ requirements:
     dockerPull: uwgac/topmed-master:2.6.0
   ResourceRequirement:
     coresMin: 1
+    coresMax: 1
     ramMin: 2000
+    ramMax: 2000
   InlineJavascriptRequirement: {}
   InitialWorkDirRequirement:
     listing:

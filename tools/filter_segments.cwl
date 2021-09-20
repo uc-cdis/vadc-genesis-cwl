@@ -10,7 +10,9 @@ requirements:
     dockerPull: python:3.7-alpine
   ResourceRequirement:
     coresMin: 1
+    coresMax: 1
     ramMin: 2000
+    ramMax: 2000
   InlineJavascriptRequirement: {}
   InitialWorkDirRequirement:
     listing:

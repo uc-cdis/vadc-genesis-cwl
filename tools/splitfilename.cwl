@@ -4,7 +4,10 @@ label: split_filename
 
 requirements:
 - class: ResourceRequirement
+  coresMin: 1 
+  coresMax: 1 
   ramMin: 4000
+  ramMax: 4000
 - class: DockerRequirement
   dockerPull: uwgac/topmed-master:2.6.0
 - class: InlineJavascriptRequirement
