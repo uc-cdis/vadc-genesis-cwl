@@ -70,14 +70,14 @@ inputs:
     default: 10000
 
 outputs:
-  null_model_output_dir:
-    type: Directory
-    outputSource: run_null_model/null_model_files_directory
+  null_model_outputs:
+    type: File[]
+    outputSource: run_null_model/null_model_files
   null_model_phenotype:
     type: File
     outputSource: run_null_model/null_model_phenotype_file
-  null_model_report_dir:
-    type: Directory
+  null_model_reports:
+    type: File[]
     outputSource: run_null_model/null_model_reports
   single_assoc_gwas_data:
     type: File[]
@@ -101,7 +101,7 @@ steps:
       phenotype_file: phenotype_file
       relatedness_matrix_file: relatedness_matrix_file
       sample_include_file: sample_include_file
-    out: [ null_model_files_directory, null_model_phenotype_file, null_model_reports ] 
+    out: [ null_model_files, null_model_phenotype_file, null_model_reports ] 
 
   run_single_association_wf:
     run: ./subworkflows/single-variant-association-wf.cwl
@@ -110,13 +110,13 @@ steps:
       genome_build: genome_build
       n_segments: n_segments
       null_model_file:
-        source: run_null_model/null_model_files_directory
+        source: run_null_model/null_model_files
         valueFrom: |
           ${
              var fil;
              var suffix = "_reportonly.RData";
-             for (var i=0; i < self.listing.length; i++) {
-               var curr = self.listing[i];
+             for (var i=0; i < self.length; i++) {
+               var curr = self[i];
                var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) === -1;
                if (is_good) {
                  fil = curr;

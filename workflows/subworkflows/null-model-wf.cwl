@@ -20,8 +20,8 @@ inputs:
   sample_include_file: File?
 
 outputs:
-  null_model_files_directory:
-    type: Directory
+  null_model_files:
+    type: File[]
     outputSource: run_null_model/null_model_files
 
   null_model_phenotype_file:
@@ -29,7 +29,7 @@ outputs:
     outputSource: run_null_model/null_model_phenotype
 
   null_model_reports:
-    type: Directory
+    type: File[]
     outputSource: run_null_model/reports
 
 steps:
