@@ -22,7 +22,7 @@ outputs:
   file_prefix:
     type: string
     outputBinding:
-      outputEval: ${return inputs.vcf_file.basename.split('chr')[0]}chr
+      outputEval: ${return inputs.vcf_file.basename.split('chr')[0] + 'chr'}
 
   file_suffix:
     type: string
