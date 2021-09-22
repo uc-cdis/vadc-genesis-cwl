@@ -1,0 +1,48 @@
+{
+  "input": {
+    "covariates": "gender Hare",
+    "gds_files": [
+      {
+        "class": "File",
+        "path": "COMMONS/d0bc5556-f000-4e51-8613-2314d5c84bc0"
+      }
+    ],
+    "n_pcs": 3,
+    "n_segments": 1,
+    "out_prefix": "test",
+    "outcome": "height",
+    "pca_file": {
+      "class": "File",
+      "path": "COMMONS/3997c4d2-0587-4922-9055-70f0d6b989b2"
+    },
+    "phenotype_file": {
+      "class": "File",
+      "path": "COMMONS/b8460184-abc0-47c9-9fe9-ea4aee74f0ee"
+    },
+    "relatedness_matrix_file": {
+      "class": "File",
+      "path": "COMMONS/78bbb795-376d-4db4-8a1f-a7c74b39f758"
+    },
+    "sample_include_file": {
+      "class": "File",
+      "path": "COMMONS/bc59e722-37d8-413c-b2ac-ce1d880e2bb7"
+    }
+  },
+  "manifest": [
+    {
+      "object_id": "d0bc5556-f000-4e51-8613-2314d5c84bc0"
+    },
+    {
+      "object_id": "3997c4d2-0587-4922-9055-70f0d6b989b2"
+    },
+    {
+      "object_id": "b8460184-abc0-47c9-9fe9-ea4aee74f0ee"
+    },
+    {
+      "object_id": "78bbb795-376d-4db4-8a1f-a7c74b39f758"
+    },
+    {
+      "object_id": "bc59e722-37d8-413c-b2ac-ce1d880e2bb7"
+    }
+  ]
+}
