@@ -7,7 +7,7 @@ doc: |
 
 requirements:
   DockerRequirement:
-    dockerPull: python:3.7-alpine
+    dockerPull: python:3.7
   ResourceRequirement:
     coresMin: 1
     coresMax: 1
