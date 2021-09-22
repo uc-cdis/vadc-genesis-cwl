@@ -62,11 +62,11 @@ steps:
     out: [ segment_file ]
 
   split_filename:
-    run: ../../tools/splitfilename.cwl
+    run: ../../tools/splitfilename_python.cwl
     in:
       vcf_file:
-        valueFrom: $(self[0])
         source: gds_files
+        valueFrom: $(self[0])
     out: [ file_prefix, file_suffix ]
 
   filter_segments:

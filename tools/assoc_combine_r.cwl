@@ -40,7 +40,7 @@ outputs:
   combined:
     type: File?
     outputBinding:
-      glob: $(inputs.out_prefix)_chr$(inputs.chromosome).RData
+      glob: $(inputs.out_prefix + '_chr' + inputs.chromosome + '.RData')
 
 baseCommand:
 - Rscript

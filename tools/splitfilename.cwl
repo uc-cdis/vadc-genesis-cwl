@@ -6,8 +6,8 @@ requirements:
 - class: ResourceRequirement
   coresMin: 1 
   coresMax: 1 
-  ramMin: 4000
-  ramMax: 4000
+  ramMin: 400
+  ramMax: 400
 - class: DockerRequirement
   dockerPull: uwgac/topmed-master:2.6.0
 - class: InlineJavascriptRequirement
@@ -22,14 +22,14 @@ outputs:
   file_prefix:
     type: string
     outputBinding:
-      outputEval: ${return inputs.vcf_file.basename.split('chr')[0]}chr
+      outputEval: ${return inputs.vcf_files.basename.split('chr')[0] + 'chr'}
 
   file_suffix:
     type: string
     outputBinding:
       outputEval: |
         ${
-          var suffix = inputs.vcf_file.path.split('chr')[1].split(".");
+          var suffix = inputs.vcf_files.path.split('chr')[1].split(".");
           suffix.shift(); // Get right of the chrom number
           return "." + suffix.join(".");
         }
