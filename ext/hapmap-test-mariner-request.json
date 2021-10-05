@@ -400,7 +400,7 @@
             "listing": [
               "$(inputs.gds_files)",
               {
-                "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport glob\n\n\ndef main():\n file_prefix = \"$(inputs.file_prefix)\"\n file_suffix = \"$(inputs.file_suffix)\"\n segments_file = \"$(inputs.segment_file.path)\"\n\n available_gds_files = set(glob.glob(\"*.gds\"))\n\n chromosomes_present = set()\n segments = []\n with open(segments_file, \"r\") as f:\n for n, line in enumerate(f.readlines()):\n chrom = line.split()[0]\n if file_prefix + chrom + file_suffix in available_gds_files:\n chromosomes_present.add(chrom)\n segments += [n] \n # R uses 1 indexing, but line 0 is the header, so it all works out\n\n with open(\"chromosomes_present.txt\", \"w\") as f:\n f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n with open(\"segments_present.txt\", \"w\") as f:\n f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n main()\n",
+                "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport glob\n\n\ndef main():\n file_prefix = \"$(inputs.file_prefix)\"\n file_suffix = \"$(inputs.file_suffix)\"\n segments_file = \"$(inputs.segment_file.path)\"\n\n available_gds_files = set(glob.glob(\"*.gds\"))\n\n print(available_gds_files)\n chromosomes_present = set()\n segments = []\n print('before segment') \n with open(segments_file, \"r\") as f:\n  for n, line in enumerate(f.readlines()):\n   print('should print if there are things in segment.txt')\n   chrom = line.split()[0]\n   if file_prefix + chrom + file_suffix in available_gds_files:\n    chromosomes_present.add(chrom)\n    segments += [n] \n     # R uses 1 indexing, but line 0 is the header, so it all works out\n\n with open(\"chromosomes_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n with open(\"segments_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n main()\n",
                 "entryname": "filter-segments.py"
               }
             ]
@@ -777,7 +777,7 @@
             "class": "InitialWorkDirRequirement",
             "listing": [
               {
-                "entry": "import os\nimport sys\n\ndef main(file_path):\n bname = os.path.basename(file_path)\n pfx = bname.split(\"chr\")[0] + 'chr'\n with open('file_prefix', 'wt') as o:\n  o.write(pfx)\n\n sfx = \".\" + \".\".join(bname.split(\".\")[1].split(\"chr\")[1:])\n print(sfx)\n with open('file_suffix', 'wt') as o:\n  o.write(sfx)\n\nif __name__ == \"__main__\":\n main(sys.argv[1])\n",
+                "entry": "import os\nimport sys\n\ndef main(file_path):\n bname = os.path.basename(file_path)\n pfx = bname.split(\"chr\")[0] + 'chr'\n with open('file_prefix', 'wt') as o:\n  o.write(pfx)\n\n sfx = \".\" + \".\".join(bname.split(\".\")[1].split(\"chr\")[1:])\n print(sfx)\n with open('file_suffix', 'wt') as o:\n  o.write('.gds')\n\nif __name__ == \"__main__\":\n main(sys.argv[1])\n",
                 "entryname": "splitfilename.py"
               }
             ]
