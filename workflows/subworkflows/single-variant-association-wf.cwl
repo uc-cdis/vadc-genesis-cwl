@@ -74,9 +74,11 @@ steps:
     in:
       file_prefix: split_filename/file_prefix
       file_suffix: split_filename/file_suffix
-      gds_files: gds_files
+      gds_filenames:
+        source: gds_files
+        valueFrom: |-
+          ${ var names = []; for(var i = 0; i < self.length; i++) { names.push(self[i].basename) } return names }
       segment_file: define_segments/segment_file
-
     out: [ chromosomes, segments ]
 
   single_association:
