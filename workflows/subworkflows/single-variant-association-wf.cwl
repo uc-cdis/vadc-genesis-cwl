@@ -77,7 +77,7 @@ steps:
       gds_filenames:
         source: gds_files
         valueFrom: |-
-          ${ var names = []; for(var i = 0; i < self.length; i++) { names.push(self[i].basename) } return names }
+          ${ var names = []; for(var i = 0; i < self.length; i++) { names.push(self[i].path) } return names }
       segment_file: define_segments/segment_file
     out: [ chromosomes, segments ]
 

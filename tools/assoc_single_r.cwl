@@ -33,11 +33,15 @@ requirements:
         segment_file "$(inputs.segment_file.path)"
     - entryname: script.sh
       entry: |
-        set -x
-        # This is a bit of cleverness we have to do to extract the chromosome
-        # number from the segments file and pass it to the R script
-        CHROM="$("$")(awk 'NR==${return parseInt(inputs.segment) + 1} {print $1}' $(inputs.segment_file.path))"
-        Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment $(inputs.segment)
+        ${
+           var result = [];
+           var segnum = parseInt(inputs.segment) + 1
+
+           result.push("set -x")
+           result.push("CHROM=" + "\"$(awk 'NR==" + segnum.toString() + " {print $1}' " + inputs.segment_file.path + ")\"")
+           result.push("Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment " + inputs.segment)
+           return result.join("\n")
+         }
 
 inputs:
   file_prefix:

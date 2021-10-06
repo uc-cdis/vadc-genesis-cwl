@@ -16,10 +16,12 @@ requirements:
   InlineJavascriptRequirement: {}
   InitialWorkDirRequirement:
     listing:
+    - entryname: gds_filenames.list
+      entry: $(inputs.gds_filenames.join("\n");)
     - entryname: filter-segments.py
       entry: |
         # Extract lists of chromosomes and segment lines valid for the data
-        import glob
+        import os
 
 
         def main():
@@ -27,8 +29,10 @@ requirements:
             file_suffix = "$(inputs.file_suffix)"
             segments_file = "$(inputs.segment_file.path)"
 
-            available_gds_files = set($(inputs.gds_filenames))
-
+            available_gds_files = set()
+            with open("gds_filenames.list", "rt") as f:
+                for line in f:
+                    available_gds_files.add(os.path.basename(line.rstrip("\r\n")))
             chromosomes_present = set()
             segments = []
             with open(segments_file, "r") as f:

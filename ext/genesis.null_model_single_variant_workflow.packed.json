@@ -12,6 +12,19 @@
       "id": "#genesis_null_model.cwl",
       "inputs": [
         {
+          "doc": "RData file with AnnotatedDataFrame of phenotypes.",
+          "id": "#genesis_null_model.cwl/phenotype_file",
+          "type": "File"
+        },
+        {
+          "doc": "RData or GDS file with a kinship matrix or GRM.",
+          "id": "#genesis_null_model.cwl/relatedness_matrix_file",
+          "type": [
+            "File",
+            "null"
+          ]
+        },
+        {
           "doc": "Names of columns phenotype_file containing covariates. Separate by spaces.\ne.g. `gender height healthy`",
           "id": "#genesis_null_model.cwl/covariates",
           "type": [
@@ -20,38 +33,17 @@
           ]
         },
         {
-          "doc": "Name of column in Phenotype File containing outcome variable.",
-          "id": "#genesis_null_model.cwl/outcome",
-          "type": "string"
-        },
-        {
-          "default": "FALSE",
-          "doc": "TRUE if outcome is a binary (case/control) variable; \nFALSE if outcome is a continuous variable.",
-          "id": "#genesis_null_model.cwl/outcome_is_binary",
-          "type": {
-            "symbols": [
-              "TRUE",
-              "FALSE"
-            ],
-            "type": "enum"
-          }
-        },
-        {
-          "doc": "RData file with PCA results created by PC-AiR.",
-          "id": "#genesis_null_model.cwl/pca_file",
+          "default": "genesis_topmed_null_model",
+          "doc": "Prefix for files created by the software",
+          "id": "#genesis_null_model.cwl/out_prefix",
           "type": [
-            "File",
+            "string",
             "null"
           ]
         },
         {
-          "doc": "RData file with AnnotatedDataFrame of phenotypes.",
-          "id": "#genesis_null_model.cwl/phenotype_file",
-          "type": "File"
-        },
-        {
-          "doc": "RData or GDS file with a kinship matrix or GRM.",
-          "id": "#genesis_null_model.cwl/relatedness_matrix_file",
+          "doc": "RData file with PCA results created by PC-AiR.",
+          "id": "#genesis_null_model.cwl/pca_file",
           "type": [
             "File",
             "null"
@@ -75,13 +67,21 @@
           ]
         },
         {
-          "default": "genesis_topmed_null_model",
-          "doc": "Prefix for files created by the software",
-          "id": "#genesis_null_model.cwl/out_prefix",
-          "type": [
-            "string",
-            "null"
-          ]
+          "doc": "Name of column in Phenotype File containing outcome variable.",
+          "id": "#genesis_null_model.cwl/outcome",
+          "type": "string"
+        },
+        {
+          "default": "FALSE",
+          "doc": "TRUE if outcome is a binary (case/control) variable; \nFALSE if outcome is a continuous variable.",
+          "id": "#genesis_null_model.cwl/outcome_is_binary",
+          "type": {
+            "symbols": [
+              "TRUE",
+              "FALSE"
+            ],
+            "type": "enum"
+          }
         }
       ],
       "label": "UW GAC (GENESIS) Null Model",
@@ -119,6 +119,9 @@
       ],
       "requirements": [
         {
+          "class": "InlineJavascriptRequirement"
+        },
+        {
           "class": "ResourceRequirement",
           "coresMax": 2,
           "coresMin": 2,
@@ -141,9 +144,6 @@
               "entryname": "script.sh"
             }
           ]
-        },
-        {
-          "class": "InlineJavascriptRequirement"
         }
       ]
     },
@@ -153,31 +153,6 @@
       "id": "#null-model-wf.cwl",
       "inputs": [
         {
-          "id": "#null-model-wf.cwl/covariates",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        {
-          "id": "#null-model-wf.cwl/out_prefix",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        {
-          "id": "#null-model-wf.cwl/phenotype_file",
-          "type": "File"
-        },
-        {
-          "id": "#null-model-wf.cwl/sample_include_file",
-          "type": [
-            "File",
-            "null"
-          ]
-        },
-        {
           "id": "#null-model-wf.cwl/n_pcs",
           "type": [
             "int",
@@ -185,8 +160,11 @@
           ]
         },
         {
-          "id": "#null-model-wf.cwl/outcome",
-          "type": "string"
+          "id": "#null-model-wf.cwl/covariates",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         {
           "default": "FALSE",
@@ -207,7 +185,29 @@
           ]
         },
         {
+          "id": "#null-model-wf.cwl/out_prefix",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        {
+          "id": "#null-model-wf.cwl/outcome",
+          "type": "string"
+        },
+        {
+          "id": "#null-model-wf.cwl/phenotype_file",
+          "type": "File"
+        },
+        {
           "id": "#null-model-wf.cwl/relatedness_matrix_file",
+          "type": [
+            "File",
+            "null"
+          ]
+        },
+        {
+          "id": "#null-model-wf.cwl/sample_include_file",
           "type": [
             "File",
             "null"
@@ -216,6 +216,14 @@
       ],
       "label": "genesis_null_model_wf",
       "outputs": [
+        {
+          "id": "#null-model-wf.cwl/null_model_reports",
+          "outputSource": "#null-model-wf.cwl/run_null_model/reports",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        },
         {
           "id": "#null-model-wf.cwl/null_model_files",
           "outputSource": "#null-model-wf.cwl/run_null_model/null_model_files",
@@ -228,24 +236,12 @@
           "id": "#null-model-wf.cwl/null_model_phenotype_file",
           "outputSource": "#null-model-wf.cwl/run_null_model/null_model_phenotype",
           "type": "File"
-        },
-        {
-          "id": "#null-model-wf.cwl/null_model_reports",
-          "outputSource": "#null-model-wf.cwl/run_null_model/reports",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
         }
       ],
       "steps": [
         {
           "id": "#null-model-wf.cwl/run_null_model",
           "in": [
-            {
-              "id": "#null-model-wf.cwl/run_null_model/out_prefix",
-              "source": "#null-model-wf.cwl/out_prefix"
-            },
             {
               "id": "#null-model-wf.cwl/run_null_model/outcome_is_binary",
               "source": "#null-model-wf.cwl/outcome_is_binary"
@@ -267,6 +263,10 @@
               "source": "#null-model-wf.cwl/covariates"
             },
             {
+              "id": "#null-model-wf.cwl/run_null_model/out_prefix",
+              "source": "#null-model-wf.cwl/out_prefix"
+            },
+            {
               "id": "#null-model-wf.cwl/run_null_model/outcome",
               "source": "#null-model-wf.cwl/outcome"
             },
@@ -285,337 +285,6 @@
             "#null-model-wf.cwl/run_null_model/reports"
           ],
           "run": "#genesis_null_model.cwl"
-        }
-      ]
-    },
-    {
-      "arguments": [],
-      "baseCommand": [
-        "python3",
-        "filter-segments.py"
-      ],
-      "class": "CommandLineTool",
-      "cwlVersion": "v1.0",
-      "doc": "Wraps the UW-GAC TopMED tool `define_segments.R`. Also produces a list of\nintegers representing the lines in the segments.txt file that can be used to\nscatter assoc_single_r.cwl\n",
-      "id": "#filter_segments.cwl",
-      "inputs": [
-        {
-          "id": "#filter_segments.cwl/file_prefix",
-          "type": "string"
-        },
-        {
-          "id": "#filter_segments.cwl/file_suffix",
-          "type": "string"
-        },
-        {
-          "doc": "List of GDS filenames",
-          "id": "#filter_segments.cwl/gds_filenames",
-          "label": "GDS filenames",
-          "type": {
-            "items": "string",
-            "type": "array"
-          }
-        },
-        {
-          "doc": "segments.txt file produced by define_segments_r.cwl",
-          "id": "#filter_segments.cwl/segment_file",
-          "type": "File"
-        }
-      ],
-      "outputs": [
-        {
-          "id": "#filter_segments.cwl/chromosomes",
-          "outputBinding": {
-            "glob": "chromosomes_present.txt",
-            "loadContents": true,
-            "outputEval": "$(self[0].contents.split(\",\");)"
-          },
-          "type": {
-            "items": "string",
-            "type": "array"
-          }
-        },
-        {
-          "id": "#filter_segments.cwl/segments",
-          "outputBinding": {
-            "glob": "segments_present.txt",
-            "loadContents": true,
-            "outputEval": "$(self[0].contents.split(\",\");)"
-          },
-          "type": {
-            "items": "string",
-            "type": "array"
-          }
-        }
-      ],
-      "requirements": [
-        {
-          "class": "DockerRequirement",
-          "dockerPull": "python:3.7"
-        },
-        {
-          "class": "ResourceRequirement",
-          "coresMax": 1,
-          "coresMin": 1,
-          "ramMax": 2000,
-          "ramMin": 2000
-        },
-        {
-          "class": "InlineJavascriptRequirement"
-        },
-        {
-          "class": "InitialWorkDirRequirement",
-          "listing": [
-            {
-              "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport glob\n\n\ndef main():\n    file_prefix = \"$(inputs.file_prefix)\"\n    file_suffix = \"$(inputs.file_suffix)\"\n    segments_file = \"$(inputs.segment_file.path)\"\n\n    available_gds_files = set($(inputs.gds_filenames))\n\n    chromosomes_present = set()\n    segments = []\n    with open(segments_file, \"r\") as f:\n        for n, line in enumerate(f.readlines()):\n            chrom = line.split()[0]\n            if file_prefix + chrom + file_suffix in available_gds_files:\n                chromosomes_present.add(chrom)\n                segments += [n] \n                # R uses 1 indexing, but line 0 is the header, so it all works out\n\n    with open(\"chromosomes_present.txt\", \"w\") as f:\n        f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n    with open(\"segments_present.txt\", \"w\") as f:\n        f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n    main()\n",
-              "entryname": "filter-segments.py"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "arguments": [],
-      "baseCommand": [
-        "sh",
-        "script.sh"
-      ],
-      "class": "CommandLineTool",
-      "cwlVersion": "v1.0",
-      "doc": "Wraps the UW-GAC TopMED tool `assoc_single.R`\n",
-      "id": "#assoc_single_r.cwl",
-      "inputs": [
-        {
-          "default": "hg38",
-          "id": "#assoc_single_r.cwl/genome_build",
-          "type": {
-            "symbols": [
-              "hg38",
-              "hg19"
-            ],
-            "type": "enum"
-          }
-        },
-        {
-          "id": "#assoc_single_r.cwl/phenotype_file",
-          "type": "File"
-        },
-        {
-          "id": "#assoc_single_r.cwl/segment",
-          "type": "string"
-        },
-        {
-          "id": "#assoc_single_r.cwl/file_prefix",
-          "type": "string"
-        },
-        {
-          "doc": "List of GDS files produced by VCF2GDS tool.",
-          "id": "#assoc_single_r.cwl/gds_files",
-          "label": "GDS file",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        },
-        {
-          "id": "#assoc_single_r.cwl/null_model_file",
-          "type": "File"
-        },
-        {
-          "default": "sva_",
-          "id": "#assoc_single_r.cwl/out_prefix",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        {
-          "id": "#assoc_single_r.cwl/segment_file",
-          "type": "File"
-        },
-        {
-          "id": "#assoc_single_r.cwl/file_suffix",
-          "type": "string"
-        }
-      ],
-      "outputs": [
-        {
-          "id": "#assoc_single_r.cwl/assoc_single",
-          "outputBinding": {
-            "glob": "$(inputs.out_prefix + '*')"
-          },
-          "type": [
-            "File",
-            "null"
-          ]
-        }
-      ],
-      "requirements": [
-        {
-          "class": "DockerRequirement",
-          "dockerPull": "uwgac/topmed-master:2.6.0"
-        },
-        {
-          "class": "ResourceRequirement",
-          "coresMax": 1,
-          "coresMin": 1,
-          "ramMax": 2000,
-          "ramMin": 2000
-        },
-        {
-          "class": "InlineJavascriptRequirement"
-        },
-        {
-          "class": "InitialWorkDirRequirement",
-          "listing": [
-            "$(inputs.gds_files)",
-            {
-              "entry": "out_prefix $(inputs.out_prefix)\ngenome_build $(inputs.genome_build)\ngds_file \"$(inputs.file_prefix) $(inputs.file_suffix)\"\nnull_model_file \"$(inputs.null_model_file.path)\"\nphenotype_file \"$(inputs.phenotype_file.path)\"\nsegment_file \"$(inputs.segment_file.path)\"\n",
-              "entryname": "assoc_single.config"
-            },
-            {
-              "entry": "set -x\n# This is a bit of cleverness we have to do to extract the chromosome\n# number from the segments file and pass it to the R script\nCHROM=\"$(\"$\")(awk 'NR==${return parseInt(inputs.segment) + 1} {print $1}' $(inputs.segment_file.path))\"\nRscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment $(inputs.segment)\n",
-              "entryname": "script.sh"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "baseCommand": [
-        "Rscript",
-        "/usr/local/analysis_pipeline/R/assoc_combine.R",
-        "assoc_combine.config"
-      ],
-      "class": "CommandLineTool",
-      "cwlVersion": "v1.0",
-      "doc": "Wraps the UW-GAC TopMED tool `assoc_combine.R` for single association only\n",
-      "id": "#assoc_combine_r.cwl",
-      "inputs": [
-        {
-          "id": "#assoc_combine_r.cwl/chromosome",
-          "inputBinding": {
-            "prefix": "--chromosome"
-          },
-          "type": "string"
-        },
-        {
-          "doc": "List of files produced by assoc_single_r tool.",
-          "id": "#assoc_combine_r.cwl/file_shards",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        },
-        {
-          "id": "#assoc_combine_r.cwl/out_prefix",
-          "type": "string"
-        }
-      ],
-      "outputs": [
-        {
-          "id": "#assoc_combine_r.cwl/combined",
-          "outputBinding": {
-            "glob": "$(inputs.out_prefix + '_chr' + inputs.chromosome + '.RData')"
-          },
-          "type": [
-            "File",
-            "null"
-          ]
-        }
-      ],
-      "requirements": [
-        {
-          "class": "DockerRequirement",
-          "dockerPull": "uwgac/topmed-master:2.6.0"
-        },
-        {
-          "class": "ResourceRequirement",
-          "coresMax": 1,
-          "coresMin": 1,
-          "ramMax": 2000,
-          "ramMin": 2000
-        },
-        {
-          "class": "InitialWorkDirRequirement",
-          "listing": [
-            "$(inputs.file_shards)",
-            {
-              "entry": "out_prefix $(inputs.out_prefix)\nassoc_type \"single\"\n",
-              "entryname": "assoc_combine.config"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "arguments": [],
-      "baseCommand": [
-        "Rscript",
-        "/usr/local/analysis_pipeline/R/assoc_plots.R",
-        "plots.config"
-      ],
-      "class": "CommandLineTool",
-      "cwlVersion": "v1.0",
-      "doc": "Wraps the UW-GAC TopMED tool `assoc_plots.R`\n",
-      "id": "#assoc_plots_r.cwl",
-      "inputs": [
-        {
-          "id": "#assoc_plots_r.cwl/out_prefix",
-          "type": "string"
-        },
-        {
-          "id": "#assoc_plots_r.cwl/chromosomes",
-          "type": {
-            "items": "string",
-            "type": "array"
-          }
-        },
-        {
-          "doc": "List of files from assoc_combine_r.cwl",
-          "id": "#assoc_plots_r.cwl/combined",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "id": "#assoc_plots_r.cwl/plots",
-          "outputBinding": {
-            "glob": "*.png"
-          },
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        }
-      ],
-      "requirements": [
-        {
-          "class": "DockerRequirement",
-          "dockerPull": "uwgac/topmed-master:2.6.0"
-        },
-        {
-          "class": "ResourceRequirement",
-          "coresMax": 1,
-          "coresMin": 1,
-          "ramMax": 2000,
-          "ramMin": 2000
-        },
-        {
-          "class": "InlineJavascriptRequirement"
-        },
-        {
-          "class": "InitialWorkDirRequirement",
-          "listing": [
-            "$(inputs.combined)",
-            {
-              "entry": "assoc_type \"single\"\nassoc_file \"$(inputs.out_prefix)_chr .RData\"\nchromosomes \"$(inputs.chromosomes.join(\" \");)\"\nout_file_manh \"$(inputs.out_prefix)_manhattan.png\"\nout_file_qq \"$(inputs.out_prefix)_qq.png\"\n",
-              "entryname": "plots.config"
-            }
-          ]
         }
       ]
     },
@@ -766,11 +435,370 @@
       ]
     },
     {
+      "arguments": [],
+      "baseCommand": [
+        "python3",
+        "filter-segments.py"
+      ],
+      "class": "CommandLineTool",
+      "cwlVersion": "v1.0",
+      "doc": "Wraps the UW-GAC TopMED tool `define_segments.R`. Also produces a list of\nintegers representing the lines in the segments.txt file that can be used to\nscatter assoc_single_r.cwl\n",
+      "id": "#filter_segments.cwl",
+      "inputs": [
+        {
+          "id": "#filter_segments.cwl/file_prefix",
+          "type": "string"
+        },
+        {
+          "id": "#filter_segments.cwl/file_suffix",
+          "type": "string"
+        },
+        {
+          "doc": "List of GDS filenames",
+          "id": "#filter_segments.cwl/gds_filenames",
+          "label": "GDS filenames",
+          "type": {
+            "items": "string",
+            "type": "array"
+          }
+        },
+        {
+          "doc": "segments.txt file produced by define_segments_r.cwl",
+          "id": "#filter_segments.cwl/segment_file",
+          "type": "File"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "#filter_segments.cwl/segments",
+          "outputBinding": {
+            "glob": "segments_present.txt",
+            "loadContents": true,
+            "outputEval": "$(self[0].contents.split(\",\");)"
+          },
+          "type": {
+            "items": "string",
+            "type": "array"
+          }
+        },
+        {
+          "id": "#filter_segments.cwl/chromosomes",
+          "outputBinding": {
+            "glob": "chromosomes_present.txt",
+            "loadContents": true,
+            "outputEval": "$(self[0].contents.split(\",\");)"
+          },
+          "type": {
+            "items": "string",
+            "type": "array"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "class": "DockerRequirement",
+          "dockerPull": "python:3.7"
+        },
+        {
+          "class": "ResourceRequirement",
+          "coresMax": 1,
+          "coresMin": 1,
+          "ramMax": 2000,
+          "ramMin": 2000
+        },
+        {
+          "class": "InlineJavascriptRequirement"
+        },
+        {
+          "class": "InitialWorkDirRequirement",
+          "listing": [
+            {
+              "entry": "$(inputs.gds_filenames.join(\"\\n\");)",
+              "entryname": "gds_filenames.list"
+            },
+            {
+              "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport os\n\n\ndef main():\n    file_prefix = \"$(inputs.file_prefix)\"\n    file_suffix = \"$(inputs.file_suffix)\"\n    segments_file = \"$(inputs.segment_file.path)\"\n\n    available_gds_files = set()\n    with open(\"gds_filenames.list\", \"rt\") as f:\n        for line in f:\n            available_gds_files.add(os.path.basename(line.rstrip(\"\\r\\n\")))\n    chromosomes_present = set()\n    segments = []\n    with open(segments_file, \"r\") as f:\n        for n, line in enumerate(f.readlines()):\n            chrom = line.split()[0]\n            if file_prefix + chrom + file_suffix in available_gds_files:\n                chromosomes_present.add(chrom)\n                segments += [n] \n                # R uses 1 indexing, but line 0 is the header, so it all works out\n\n    with open(\"chromosomes_present.txt\", \"w\") as f:\n        f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n    with open(\"segments_present.txt\", \"w\") as f:\n        f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n    main()\n",
+              "entryname": "filter-segments.py"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arguments": [],
+      "baseCommand": [
+        "sh",
+        "script.sh"
+      ],
+      "class": "CommandLineTool",
+      "cwlVersion": "v1.0",
+      "doc": "Wraps the UW-GAC TopMED tool `assoc_single.R`\n",
+      "id": "#assoc_single_r.cwl",
+      "inputs": [
+        {
+          "id": "#assoc_single_r.cwl/file_suffix",
+          "type": "string"
+        },
+        {
+          "doc": "List of GDS files produced by VCF2GDS tool.",
+          "id": "#assoc_single_r.cwl/gds_files",
+          "label": "GDS file",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        },
+        {
+          "default": "hg38",
+          "id": "#assoc_single_r.cwl/genome_build",
+          "type": {
+            "symbols": [
+              "hg38",
+              "hg19"
+            ],
+            "type": "enum"
+          }
+        },
+        {
+          "id": "#assoc_single_r.cwl/null_model_file",
+          "type": "File"
+        },
+        {
+          "default": "sva_",
+          "id": "#assoc_single_r.cwl/out_prefix",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        {
+          "id": "#assoc_single_r.cwl/phenotype_file",
+          "type": "File"
+        },
+        {
+          "id": "#assoc_single_r.cwl/file_prefix",
+          "type": "string"
+        },
+        {
+          "id": "#assoc_single_r.cwl/segment",
+          "type": "string"
+        },
+        {
+          "id": "#assoc_single_r.cwl/segment_file",
+          "type": "File"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "#assoc_single_r.cwl/assoc_single",
+          "outputBinding": {
+            "glob": "$(inputs.out_prefix + '*')"
+          },
+          "type": [
+            "File",
+            "null"
+          ]
+        }
+      ],
+      "requirements": [
+        {
+          "class": "DockerRequirement",
+          "dockerPull": "uwgac/topmed-master:2.6.0"
+        },
+        {
+          "class": "ResourceRequirement",
+          "coresMax": 1,
+          "coresMin": 1,
+          "ramMax": 2000,
+          "ramMin": 2000
+        },
+        {
+          "class": "InlineJavascriptRequirement"
+        },
+        {
+          "class": "InitialWorkDirRequirement",
+          "listing": [
+            "$(inputs.gds_files)",
+            {
+              "entry": "out_prefix $(inputs.out_prefix)\ngenome_build $(inputs.genome_build)\ngds_file \"$(inputs.file_prefix) $(inputs.file_suffix)\"\nnull_model_file \"$(inputs.null_model_file.path)\"\nphenotype_file \"$(inputs.phenotype_file.path)\"\nsegment_file \"$(inputs.segment_file.path)\"\n",
+              "entryname": "assoc_single.config"
+            },
+            {
+              "entry": "set -x\n# This is a bit of cleverness we have to do to extract the chromosome\n# number from the segments file and pass it to the R script\nCHROM=\"$(\"$\")(awk 'NR==${return parseInt(inputs.segment) + 1} {print $1}' $(inputs.segment_file.path))\"\nRscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment $(inputs.segment)\n",
+              "entryname": "script.sh"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "baseCommand": [
+        "Rscript",
+        "/usr/local/analysis_pipeline/R/assoc_combine.R",
+        "assoc_combine.config"
+      ],
+      "class": "CommandLineTool",
+      "cwlVersion": "v1.0",
+      "doc": "Wraps the UW-GAC TopMED tool `assoc_combine.R` for single association only\n",
+      "id": "#assoc_combine_r.cwl",
+      "inputs": [
+        {
+          "id": "#assoc_combine_r.cwl/out_prefix",
+          "type": "string"
+        },
+        {
+          "id": "#assoc_combine_r.cwl/chromosome",
+          "inputBinding": {
+            "prefix": "--chromosome"
+          },
+          "type": "string"
+        },
+        {
+          "doc": "List of files produced by assoc_single_r tool.",
+          "id": "#assoc_combine_r.cwl/file_shards",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "#assoc_combine_r.cwl/combined",
+          "outputBinding": {
+            "glob": "$(inputs.out_prefix + '_chr' + inputs.chromosome + '.RData')"
+          },
+          "type": [
+            "File",
+            "null"
+          ]
+        }
+      ],
+      "requirements": [
+        {
+          "class": "DockerRequirement",
+          "dockerPull": "uwgac/topmed-master:2.6.0"
+        },
+        {
+          "class": "ResourceRequirement",
+          "coresMax": 1,
+          "coresMin": 1,
+          "ramMax": 2000,
+          "ramMin": 2000
+        },
+        {
+          "class": "InitialWorkDirRequirement",
+          "listing": [
+            "$(inputs.file_shards)",
+            {
+              "entry": "out_prefix $(inputs.out_prefix)\nassoc_type \"single\"\n",
+              "entryname": "assoc_combine.config"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arguments": [],
+      "baseCommand": [
+        "Rscript",
+        "/usr/local/analysis_pipeline/R/assoc_plots.R",
+        "plots.config"
+      ],
+      "class": "CommandLineTool",
+      "cwlVersion": "v1.0",
+      "doc": "Wraps the UW-GAC TopMED tool `assoc_plots.R`\n",
+      "id": "#assoc_plots_r.cwl",
+      "inputs": [
+        {
+          "id": "#assoc_plots_r.cwl/out_prefix",
+          "type": "string"
+        },
+        {
+          "id": "#assoc_plots_r.cwl/chromosomes",
+          "type": {
+            "items": "string",
+            "type": "array"
+          }
+        },
+        {
+          "doc": "List of files from assoc_combine_r.cwl",
+          "id": "#assoc_plots_r.cwl/combined",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "#assoc_plots_r.cwl/plots",
+          "outputBinding": {
+            "glob": "*.png"
+          },
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        }
+      ],
+      "requirements": [
+        {
+          "class": "DockerRequirement",
+          "dockerPull": "uwgac/topmed-master:2.6.0"
+        },
+        {
+          "class": "ResourceRequirement",
+          "coresMax": 1,
+          "coresMin": 1,
+          "ramMax": 2000,
+          "ramMin": 2000
+        },
+        {
+          "class": "InlineJavascriptRequirement"
+        },
+        {
+          "class": "InitialWorkDirRequirement",
+          "listing": [
+            "$(inputs.combined)",
+            {
+              "entry": "assoc_type \"single\"\nassoc_file \"$(inputs.out_prefix)_chr .RData\"\nchromosomes \"$(inputs.chromosomes.join(\" \");)\"\nout_file_manh \"$(inputs.out_prefix)_manhattan.png\"\nout_file_qq \"$(inputs.out_prefix)_qq.png\"\n",
+              "entryname": "plots.config"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "class": "Workflow",
       "cwlVersion": "v1.0",
       "doc": "UW GAC (GENESIS) Singe Variant Association Workflow.\n\nThis is a CWL wrapper for the [UW GAC Single-Variant Association pipeline](https://github.com/UW-GAC/analysis_pipeline#single-variant) \n\n_Filename requirements_:\nThe input GDS file names should follow the pattern <A>chr<X>.<y>\nFor example: 1KG_phase3_subset_chr1.gds\nSome of the tools inside the workflow infer the chromosome number from the\nfile by expecting this pattern of file name.\n",
       "id": "#single-variant-association-wf.cwl",
       "inputs": [
+        {
+          "doc": "Number of segments (overrides segment length)",
+          "id": "#single-variant-association-wf.cwl/n_segments",
+          "type": [
+            "int",
+            "null"
+          ]
+        },
+        {
+          "id": "#single-variant-association-wf.cwl/null_model_file",
+          "type": "File"
+        },
+        {
+          "default": "sva_",
+          "id": "#single-variant-association-wf.cwl/out_prefix",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        {
+          "id": "#single-variant-association-wf.cwl/phenotype_file",
+          "type": "File"
+        },
         {
           "default": 10000,
           "doc": "Segment length in kb",
@@ -799,30 +827,6 @@
             ],
             "type": "enum"
           }
-        },
-        {
-          "doc": "Number of segments (overrides segment length)",
-          "id": "#single-variant-association-wf.cwl/n_segments",
-          "type": [
-            "int",
-            "null"
-          ]
-        },
-        {
-          "id": "#single-variant-association-wf.cwl/null_model_file",
-          "type": "File"
-        },
-        {
-          "default": "sva_",
-          "id": "#single-variant-association-wf.cwl/out_prefix",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        {
-          "id": "#single-variant-association-wf.cwl/phenotype_file",
-          "type": "File"
         }
       ],
       "label": "UW GAC (GENESIS) Single Variant Association Workflow",
@@ -846,16 +850,52 @@
       ],
       "requirements": [
         {
-          "class": "StepInputExpressionRequirement"
-        },
-        {
           "class": "InlineJavascriptRequirement"
         },
         {
           "class": "ScatterFeatureRequirement"
+        },
+        {
+          "class": "StepInputExpressionRequirement"
         }
       ],
       "steps": [
+        {
+          "id": "#single-variant-association-wf.cwl/define_segments",
+          "in": [
+            {
+              "id": "#single-variant-association-wf.cwl/define_segments/genome_build",
+              "source": "#single-variant-association-wf.cwl/genome_build"
+            },
+            {
+              "id": "#single-variant-association-wf.cwl/define_segments/n_segments",
+              "source": "#single-variant-association-wf.cwl/n_segments"
+            },
+            {
+              "id": "#single-variant-association-wf.cwl/define_segments/segment_length",
+              "source": "#single-variant-association-wf.cwl/segment_length"
+            }
+          ],
+          "out": [
+            "#single-variant-association-wf.cwl/define_segments/segment_file"
+          ],
+          "run": "#define_segments_r.cwl"
+        },
+        {
+          "id": "#single-variant-association-wf.cwl/split_filename",
+          "in": [
+            {
+              "id": "#single-variant-association-wf.cwl/split_filename/vcf_file",
+              "source": "#single-variant-association-wf.cwl/gds_files",
+              "valueFrom": "$(self[0])"
+            }
+          ],
+          "out": [
+            "#single-variant-association-wf.cwl/split_filename/file_prefix",
+            "#single-variant-association-wf.cwl/split_filename/file_suffix"
+          ],
+          "run": "#splitfilename_python.cwl"
+        },
         {
           "id": "#single-variant-association-wf.cwl/filter_segments",
           "in": [
@@ -870,7 +910,7 @@
             {
               "id": "#single-variant-association-wf.cwl/filter_segments/gds_filenames",
               "source": "#single-variant-association-wf.cwl/gds_files",
-              "valueFrom": "${ var names = []; for(var i = 0; i < self.length; i++) { names.push(self[i].basename) } return names }"
+              "valueFrom": "${ var names = []; for(var i = 0; i < self.length; i++) { names.push(self[i].path) } return names }"
             },
             {
               "id": "#single-variant-association-wf.cwl/filter_segments/segment_file",
@@ -891,24 +931,12 @@
               "source": "#single-variant-association-wf.cwl/split_filename/file_prefix"
             },
             {
-              "id": "#single-variant-association-wf.cwl/single_association/gds_files",
-              "source": "#single-variant-association-wf.cwl/gds_files"
-            },
-            {
-              "id": "#single-variant-association-wf.cwl/single_association/null_model_file",
-              "source": "#single-variant-association-wf.cwl/null_model_file"
+              "id": "#single-variant-association-wf.cwl/single_association/genome_build",
+              "source": "#single-variant-association-wf.cwl/genome_build"
             },
             {
               "id": "#single-variant-association-wf.cwl/single_association/out_prefix",
               "source": "#single-variant-association-wf.cwl/out_prefix"
-            },
-            {
-              "id": "#single-variant-association-wf.cwl/single_association/file_suffix",
-              "source": "#single-variant-association-wf.cwl/split_filename/file_suffix"
-            },
-            {
-              "id": "#single-variant-association-wf.cwl/single_association/genome_build",
-              "source": "#single-variant-association-wf.cwl/genome_build"
             },
             {
               "id": "#single-variant-association-wf.cwl/single_association/phenotype_file",
@@ -921,6 +949,18 @@
             {
               "id": "#single-variant-association-wf.cwl/single_association/segment_file",
               "source": "#single-variant-association-wf.cwl/define_segments/segment_file"
+            },
+            {
+              "id": "#single-variant-association-wf.cwl/single_association/file_suffix",
+              "source": "#single-variant-association-wf.cwl/split_filename/file_suffix"
+            },
+            {
+              "id": "#single-variant-association-wf.cwl/single_association/gds_files",
+              "source": "#single-variant-association-wf.cwl/gds_files"
+            },
+            {
+              "id": "#single-variant-association-wf.cwl/single_association/null_model_file",
+              "source": "#single-variant-association-wf.cwl/null_model_file"
             }
           ],
           "out": [
@@ -972,42 +1012,6 @@
             "#single-variant-association-wf.cwl/plot/plots"
           ],
           "run": "#assoc_plots_r.cwl"
-        },
-        {
-          "id": "#single-variant-association-wf.cwl/define_segments",
-          "in": [
-            {
-              "id": "#single-variant-association-wf.cwl/define_segments/genome_build",
-              "source": "#single-variant-association-wf.cwl/genome_build"
-            },
-            {
-              "id": "#single-variant-association-wf.cwl/define_segments/n_segments",
-              "source": "#single-variant-association-wf.cwl/n_segments"
-            },
-            {
-              "id": "#single-variant-association-wf.cwl/define_segments/segment_length",
-              "source": "#single-variant-association-wf.cwl/segment_length"
-            }
-          ],
-          "out": [
-            "#single-variant-association-wf.cwl/define_segments/segment_file"
-          ],
-          "run": "#define_segments_r.cwl"
-        },
-        {
-          "id": "#single-variant-association-wf.cwl/split_filename",
-          "in": [
-            {
-              "id": "#single-variant-association-wf.cwl/split_filename/vcf_file",
-              "source": "#single-variant-association-wf.cwl/gds_files",
-              "valueFrom": "$(self[0])"
-            }
-          ],
-          "out": [
-            "#single-variant-association-wf.cwl/split_filename/file_prefix",
-            "#single-variant-association-wf.cwl/split_filename/file_suffix"
-          ],
-          "run": "#splitfilename_python.cwl"
         }
       ]
     },
@@ -1016,62 +1020,6 @@
       "cwlVersion": "v1.0",
       "id": "#main",
       "inputs": [
-        {
-          "doc": "Number of segments (overrides segment length)",
-          "id": "#main/n_segments",
-          "type": [
-            "int",
-            "null"
-          ]
-        },
-        {
-          "default": 10000,
-          "doc": "Segment length in kb",
-          "id": "#main/segment_length",
-          "type": [
-            "int",
-            "null"
-          ]
-        },
-        {
-          "default": 0,
-          "doc": "Number of PCs to include as covariates.",
-          "id": "#main/n_pcs",
-          "type": [
-            "int",
-            "null"
-          ]
-        },
-        {
-          "doc": "Names of columns phenotype_file containing covariates. Separate by spaces.\ne.g. `gender height healthy`",
-          "id": "#main/covariates",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        {
-          "doc": "RData file with AnnotatedDataFrame of phenotypes.",
-          "id": "#main/phenotype_file",
-          "type": "File"
-        },
-        {
-          "doc": "RData or GDS file with a kinship matrix or GRM.",
-          "id": "#main/relatedness_matrix_file",
-          "type": [
-            "File",
-            "null"
-          ]
-        },
-        {
-          "doc": "List of GDS files produced by VCF2GDS tool.",
-          "id": "#main/gds_files",
-          "label": "GDS file",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        },
         {
           "default": "hg19",
           "id": "#main/genome_build",
@@ -1091,11 +1039,6 @@
             "string",
             "null"
           ]
-        },
-        {
-          "doc": "Name of column in Phenotype File containing outcome variable.",
-          "id": "#main/outcome",
-          "type": "string"
         },
         {
           "default": "FALSE",
@@ -1118,16 +1061,90 @@
           ]
         },
         {
+          "doc": "RData file with AnnotatedDataFrame of phenotypes.",
+          "id": "#main/phenotype_file",
+          "type": "File"
+        },
+        {
           "doc": "RData object containing a vector of samples to include.",
           "id": "#main/sample_include_file",
           "type": [
             "File",
             "null"
           ]
+        },
+        {
+          "doc": "List of GDS files produced by VCF2GDS tool.",
+          "id": "#main/gds_files",
+          "label": "GDS file",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        },
+        {
+          "default": 0,
+          "doc": "Number of PCs to include as covariates.",
+          "id": "#main/n_pcs",
+          "type": [
+            "int",
+            "null"
+          ]
+        },
+        {
+          "doc": "Names of columns phenotype_file containing covariates. Separate by spaces.\ne.g. `gender height healthy`",
+          "id": "#main/covariates",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        {
+          "doc": "Name of column in Phenotype File containing outcome variable.",
+          "id": "#main/outcome",
+          "type": "string"
+        },
+        {
+          "doc": "RData or GDS file with a kinship matrix or GRM.",
+          "id": "#main/relatedness_matrix_file",
+          "type": [
+            "File",
+            "null"
+          ]
+        },
+        {
+          "doc": "Number of segments (overrides segment length)",
+          "id": "#main/n_segments",
+          "type": [
+            "int",
+            "null"
+          ]
+        },
+        {
+          "default": 10000,
+          "doc": "Segment length in kb",
+          "id": "#main/segment_length",
+          "type": [
+            "int",
+            "null"
+          ]
         }
       ],
       "label": "GENESIS null model and single variant association workflow",
       "outputs": [
+        {
+          "id": "#main/null_model_phenotype",
+          "outputSource": "#main/run_null_model/null_model_phenotype_file",
+          "type": "File"
+        },
+        {
+          "id": "#main/null_model_reports",
+          "outputSource": "#main/run_null_model/null_model_reports",
+          "type": {
+            "items": "File",
+            "type": "array"
+          }
+        },
         {
           "id": "#main/single_assoc_gwas_data",
           "outputSource": "#main/run_single_association_wf/data",
@@ -1147,19 +1164,6 @@
         {
           "id": "#main/null_model_outputs",
           "outputSource": "#main/run_null_model/null_model_files",
-          "type": {
-            "items": "File",
-            "type": "array"
-          }
-        },
-        {
-          "id": "#main/null_model_phenotype",
-          "outputSource": "#main/run_null_model/null_model_phenotype_file",
-          "type": "File"
-        },
-        {
-          "id": "#main/null_model_reports",
-          "outputSource": "#main/run_null_model/null_model_reports",
           "type": {
             "items": "File",
             "type": "array"
@@ -1185,13 +1189,12 @@
           "id": "#main/run_null_model",
           "in": [
             {
-              "id": "#main/run_null_model/covariates",
-              "source": "#main/covariates"
+              "id": "#main/run_null_model/n_pcs",
+              "source": "#main/n_pcs"
             },
             {
-              "id": "#main/run_null_model/out_prefix",
-              "source": "#main/out_prefix",
-              "valueFrom": "$(self + '_null_model')"
+              "id": "#main/run_null_model/covariates",
+              "source": "#main/covariates"
             },
             {
               "id": "#main/run_null_model/outcome",
@@ -1202,24 +1205,25 @@
               "source": "#main/outcome_is_binary"
             },
             {
-              "id": "#main/run_null_model/phenotype_file",
-              "source": "#main/phenotype_file"
+              "id": "#main/run_null_model/sample_include_file",
+              "source": "#main/sample_include_file"
             },
             {
-              "id": "#main/run_null_model/n_pcs",
-              "source": "#main/n_pcs"
+              "id": "#main/run_null_model/out_prefix",
+              "source": "#main/out_prefix",
+              "valueFrom": "$(self + '_null_model')"
             },
             {
               "id": "#main/run_null_model/pca_file",
               "source": "#main/pca_file"
             },
             {
-              "id": "#main/run_null_model/relatedness_matrix_file",
-              "source": "#main/relatedness_matrix_file"
+              "id": "#main/run_null_model/phenotype_file",
+              "source": "#main/phenotype_file"
             },
             {
-              "id": "#main/run_null_model/sample_include_file",
-              "source": "#main/sample_include_file"
+              "id": "#main/run_null_model/relatedness_matrix_file",
+              "source": "#main/relatedness_matrix_file"
             }
           ],
           "out": [
@@ -1232,6 +1236,14 @@
         {
           "id": "#main/run_single_association_wf",
           "in": [
+            {
+              "id": "#main/run_single_association_wf/gds_files",
+              "source": "#main/gds_files"
+            },
+            {
+              "id": "#main/run_single_association_wf/genome_build",
+              "source": "#main/genome_build"
+            },
             {
               "id": "#main/run_single_association_wf/n_segments",
               "source": "#main/n_segments"
@@ -1253,14 +1265,6 @@
             {
               "id": "#main/run_single_association_wf/segment_length",
               "source": "#main/segment_length"
-            },
-            {
-              "id": "#main/run_single_association_wf/gds_files",
-              "source": "#main/gds_files"
-            },
-            {
-              "id": "#main/run_single_association_wf/genome_build",
-              "source": "#main/genome_build"
             }
           ],
           "out": [
