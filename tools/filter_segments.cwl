@@ -16,7 +16,6 @@ requirements:
   InlineJavascriptRequirement: {}
   InitialWorkDirRequirement:
     listing:
-    - $(inputs.gds_files)
     - entryname: filter-segments.py
       entry: |
         # Extract lists of chromosomes and segment lines valid for the data
@@ -28,7 +27,7 @@ requirements:
             file_suffix = "$(inputs.file_suffix)"
             segments_file = "$(inputs.segment_file.path)"
 
-            available_gds_files = set(glob.glob("*.gds"))
+            available_gds_files = set($(inputs.gds_filenames))
 
             chromosomes_present = set()
             segments = []
@@ -55,10 +54,10 @@ inputs:
     type: string
   file_suffix:
     type: string
-  gds_files:
-    label: GDS file
-    doc: List of GDS files produced by VCF2GDS tool.
-    type: File[]
+  gds_filenames:
+    label: GDS filenames
+    doc: List of GDS filenames 
+    type: string[]
   segment_file:
     doc: segments.txt file produced by define_segments_r.cwl
     type: File
@@ -68,13 +67,13 @@ outputs:
     type: string[]
     outputBinding:
       glob: chromosomes_present.txt
-      outputEval: $(self[0].contents.split(","))
+      outputEval: $(self[0].contents.split(",");)
       loadContents: true
   segments:
     type: string[]
     outputBinding:
       glob: segments_present.txt
-      outputEval: $(self[0].contents.split(","))
+      outputEval: $(self[0].contents.split(",");)
       loadContents: true
 
 
