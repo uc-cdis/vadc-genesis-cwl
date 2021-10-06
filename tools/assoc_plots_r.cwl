@@ -18,7 +18,7 @@ requirements:
       entry: |
         assoc_type "single"
         assoc_file "$(inputs.out_prefix)_chr .RData"
-        chromosomes "$(inputs.chromosomes.join(" ");)"
+        chromosomes "$(inputs.chromosomes.join(' ');)"
         out_file_manh "$(inputs.out_prefix)_manhattan.png"
         out_file_qq "$(inputs.out_prefix)_qq.png"
 
