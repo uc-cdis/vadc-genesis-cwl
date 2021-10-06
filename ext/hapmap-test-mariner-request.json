@@ -360,7 +360,7 @@
             "outputBinding": {
               "glob": "chromosomes_present.txt",
               "loadContents": true,
-              "outputEval": "$(self[0].contents.split(\",\"))"
+              "outputEval": "$(self[0].contents.split(',');)"
             },
             "type": {
               "items": "string",
@@ -372,7 +372,7 @@
             "outputBinding": {
               "glob": "segments_present.txt",
               "loadContents": true,
-              "outputEval": "$(self[0].contents.split(\",\"))"
+              "outputEval": "$(self[0].contents.split(',');)"
             },
             "type": {
               "items": "string",
@@ -400,7 +400,7 @@
             "listing": [
               "$(inputs.gds_files)",
               {
-                "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport glob\n\n\ndef main():\n file_prefix = \"$(inputs.file_prefix)\"\n file_suffix = \"$(inputs.file_suffix)\"\n segments_file = \"$(inputs.segment_file.path)\"\n\n available_gds_files = set(glob.glob(\"*.gds\"))\n\n print(available_gds_files)\n chromosomes_present = set()\n segments = []\n print('before segment') \n with open(segments_file, \"r\") as f:\n  for n, line in enumerate(f.readlines()):\n   print('should print if there are things in segment.txt')\n   chrom = line.split()[0]\n   if file_prefix + chrom + file_suffix in available_gds_files:\n    chromosomes_present.add(chrom)\n    segments += [n] \n     # R uses 1 indexing, but line 0 is the header, so it all works out\n\n with open(\"chromosomes_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n with open(\"segments_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n main()\n",
+                "entry": "# Extract lists of chromosomes and segment lines valid for the data\nimport glob\n\n\ndef main():\n file_prefix = \"$(inputs.file_prefix)\"\n file_suffix = \"$(inputs.file_suffix)\"\n segments_file = \"$(inputs.segment_file.path)\"\n\n gds_files = ['hapmap-ceu_chr1.gds', 'hapmap-ceu_chr2.gds', 'hapmap-ceu_chr3.gds']\n available_gds_files = set(gds_files)\n\n print(available_gds_files)\n chromosomes_present = set()\n segments = []\n print('before segment') \n with open(segments_file, \"r\") as f:\n  for n, line in enumerate(f.readlines()):\n   print('should print if there are things in segment.txt')\n   chrom = line.split()[0]\n   print()\n   if file_prefix + chrom + file_suffix in available_gds_files:\n    chromosomes_present.add(chrom)\n    segments += [n] \n     # R uses 1 indexing, but line 0 is the header, so it all works out\n\n with open(\"chromosomes_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(c) for c in chromosomes_present]))\n\n with open(\"segments_present.txt\", \"w\") as f:\n  f.write(\",\".join([str(s) for s in segments]))\n\n\nif __name__ == \"__main__\":\n main()\n",
                 "entryname": "filter-segments.py"
               }
             ]
