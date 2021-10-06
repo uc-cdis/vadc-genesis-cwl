@@ -2,15 +2,15 @@
 
 CWL_ENTRY_WF="../workflows/genesis.null_model_single_variant_workflow.cwl"
 CWL_PACKED_WF="genesis.null_model_single_variant_workflow.packed.json"
-CONFIG_JSON="request-input-config.json"
-OUT_JSON="hapmap-test-mariner-request.json"
+CONFIG_JSON="request-input-config.user_files.json"
+OUT_JSON="hapmap-test-mariner-request.user_files.json"
+PY_SCRIPT="generate_request_json.py"
 
 function help() {
     echo "Generates the '${OUT_JSON}' from the '${CONFIG_JSON}' where"
     echo "you define the 'input' and 'manifest' parts; the '${CWL_PACKED_WF}'"
     echo "which will be automatically generated if it doesn't exist or optionally overwritten"
-    echo "using the mariner wftool as defined in the 'WFTOOL' environmental variable. This tool"
-    echo "also assumes you have 'jq' in your PATH."
+    echo "using the mariner wftool as defined in the 'WFTOOL' environmental variable."
     echo ""
     echo "Usage:"
     echo "make_request_json.sh"
@@ -18,11 +18,11 @@ function help() {
     echo "    using the WFTOOL env var."
     echo ""
     echo "make_request_json.sh overwrite"
-    echo "    Creates the '${CWL_PACKED_WF}' regardless of it existing or not" 
+    echo "    Creates the '${CWL_PACKED_WF}' regardless of it existing or not"
     echo "    using the WFTOOL env var."
     echo ""
     echo "make_request_json.sh help"
-    echo "    Prints help to stdout and exits." 
+    echo "    Prints help to stdout and exits."
 }
 
 function check_env() {
@@ -33,16 +33,12 @@ function check_env() {
     fi
 }
 
-function check_jq() {
-    jqpath=`which jq`
-
-    if [[ -z $jqpath ]]; then
-        echo "[ERROR] You must have 'jq' installed and in your PATH!!" 
-        echo "[ERROR] For more info run: make_request_json.sh help"
-        exit 1
-    
-    fi
-}
+function check_script() {
+     if [[ ! -f "$PY_SCRIPT" ]]; then
+         echo "[ERROR] Expected script at $PY_SCRIPT but it did not exist!!"
+         exit 1
+     fi
+ }
 
 function pack_workflow() {
     echo "[INFO] Packing the $CWL_ENTRY_WF workflow..."
@@ -50,23 +46,15 @@ function pack_workflow() {
 }
 
 function generate_request_json() {
-    echo "[INFO] Generating request json.."
-    inputdat=`cat $CONFIG_JSON | jq .input`    
-    manifestdat=`cat $CONFIG_JSON | jq .manifest`    
-    wfdat=`cat $CWL_PACKED_WF`
-    requestdat=$(cat <<EOF
-{
-  "input": ${inputdat},
-  "manifest": ${manifestdat},
-  "workflow": ${wfdat}
-}
-EOF
-)
-    echo $requestdat | jq . > $OUT_JSON
+     echo "[INFO] Generating request json.."
+     python3 $PY_SCRIPT \
+     --mariner-packed-workflow $CWL_PACKED_WF \
+     --request-inputs $CONFIG_JSON \
+     --output $OUT_JSON
 }
 
 if [[ -z $1 ]]; then
-    check_jq
+    check_script
     if [[ -f $CWL_PACKED_WF ]]; then
         echo "[INFO] Packed workflow already exists... will not regenerate..."
         echo "[INFO] If you want to regenerate run: make_requrest_json.sh overwrite"
@@ -83,7 +71,7 @@ elif [[ $1 == "help" ]]; then
 
 elif [[ $1 == "overwrite" ]]; then
     check_env
-    check_jq
+    check_script
     pack_workflow
     generate_request_json
 
