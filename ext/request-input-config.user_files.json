@@ -1,0 +1,32 @@
+{
+  "input": {
+    "covariates": "gender Hare",
+    "gds_files": [
+      {
+        "class": "File",
+        "path": "USER/hapmap-ceu_chr1.gds"
+      }
+    ],
+    "n_pcs": 3,
+    "n_segments": 1,
+    "out_prefix": "test",
+    "outcome": "height",
+    "pca_file": {
+      "class": "File",
+      "path": "USER/hapmap_test_pcair_pca.RData"
+    },
+    "phenotype_file": {
+      "class": "File",
+      "path": "USER/hapmap_pheno_demo.RData"
+    },
+    "relatedness_matrix_file": {
+      "class": "File",
+      "path": "USER/hapmap_test_pcrelate_pcrelate_Matrix.RData"
+    },
+    "sample_include_file": {
+      "class": "File",
+      "path": "USER/hapmap-samples.Rdata"
+    }
+  },
+  "manifest": []
+}
