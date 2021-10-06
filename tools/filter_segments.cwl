@@ -17,7 +17,10 @@ requirements:
   InitialWorkDirRequirement:
     listing:
     - entryname: gds_filenames.list
-      entry: $(inputs.gds_filenames.join("\n");)
+      entry: |
+        ${
+           return inputs.gds_filenames.join('\n');
+         }
     - entryname: filter-segments.py
       entry: |
         # Extract lists of chromosomes and segment lines valid for the data
