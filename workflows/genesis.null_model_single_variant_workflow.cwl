@@ -109,22 +109,7 @@ steps:
       gds_files: gds_files
       genome_build: genome_build
       n_segments: n_segments
-      null_model_file:
-        source: run_null_model/null_model_files
-        valueFrom: |
-          ${
-             var fil;
-             var suffix = "_reportonly.RData";
-             for (var i=0; i < self.length; i++) {
-               var curr = self[i];
-               var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) === -1;
-               if (is_good) {
-                 fil = curr;
-                 break;
-               }
-             }
-             return fil;
-           }
+      null_model_outputs: run_null_model/null_model_files
       out_prefix:
         source: out_prefix
         valueFrom: $(self + '_single_assoc')

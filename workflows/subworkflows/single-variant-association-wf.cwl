@@ -32,8 +32,8 @@ inputs:
   n_segments:
     doc: Number of segments (overrides segment length)
     type: int?
-  null_model_file:
-    type: File
+  null_model_outputs:
+    type: File[]
   out_prefix:
     type: string?
     default: sva_
@@ -89,7 +89,26 @@ steps:
       file_suffix: split_filename/file_suffix
       gds_files: gds_files
       genome_build: genome_build
-      null_model_file: null_model_file
+      null_model_file:
+        source: null_model_outputs
+        valueFrom: |
+          ${
+              var fil;
+              var suffix = "_reportonly.RData";
+              for (var i=0; i < self.length; i++) {
+                var curr = self[i];
+                if(typeof(curr.basename) == 'undefined' || curr.basename === null) {
+                    var is_good = curr.path.indexOf(suffix, curr.path.length - suffix.length) !== -1;
+                } else {
+                    var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) !== -1;
+                }
+                if (is_good) {
+                  fil = curr;
+                  break;
+                }
+              }
+              return fil;
+           }
       out_prefix: out_prefix
       phenotype_file: phenotype_file
       segment: filter_segments/segments
