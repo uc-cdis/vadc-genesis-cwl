@@ -26,7 +26,8 @@
     "sample_include_file": {
       "class": "File",
       "path": "USER/hapmap-samples.Rdata"
-    }
+    },
+    "genome_build": "hg19"
   },
   "manifest": []
 }

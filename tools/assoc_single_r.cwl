@@ -35,11 +35,12 @@ requirements:
       entry: |
         ${
            var result = [];
-           var segnum = parseInt(inputs.segment) + 1;
+           var segval = parseInt(inputs.segment);
+           var segnum = segval + 1;
 
            result.push("set -x");
            result.push("CHROM=" + "\"$(awk 'NR==" + segnum.toString() + " {print $1}' " + inputs.segment_file.path + ")\"");
-           result.push("Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment " + inputs.segment);
+           result.push("Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment " + segval.toString());
            return result.join('\n');
          }
 
