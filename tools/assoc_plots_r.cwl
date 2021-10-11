@@ -16,11 +16,15 @@ requirements:
     - $(inputs.combined)
     - entryname: plots.config
       entry: |
-        assoc_type "single"
-        assoc_file "$(inputs.out_prefix)_chr .RData"
-        chromosomes "$(inputs.chromosomes.join(' ');)"
-        out_file_manh "$(inputs.out_prefix)_manhattan.png"
-        out_file_qq "$(inputs.out_prefix)_qq.png"
+        ${
+           var ret = [];
+           ret.push('assoc_type "single"');
+           ret.push('assoc_file "' + inputs.out_prefix + '_chr .RData"');
+           ret.push('chromosomes "' + inputs.chromosomes.join(' ') + '"');
+           ret.push('out_file_manh "' + inputs.out_prefix + '_manhattan.png"');
+           ret.push('out_file_qq "' + inputs.out_prefix + '_qq.png"');
+           return ret.join('\n');
+         }
 
 inputs:
   out_prefix:
