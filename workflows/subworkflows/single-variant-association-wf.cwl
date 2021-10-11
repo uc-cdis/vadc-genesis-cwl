@@ -98,9 +98,9 @@ steps:
               for (var i=0; i < self.length; i++) {
                 var curr = self[i];
                 if(typeof(curr.basename) == 'undefined' || curr.basename === null) {
-                    var is_good = curr.path.indexOf(suffix, curr.path.length - suffix.length) !== -1;
+                    var is_good = curr.path.indexOf(suffix, curr.path.length - suffix.length) === -1;
                 } else {
-                    var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) !== -1;
+                    var is_good = curr.basename.indexOf(suffix, curr.basename.length - suffix.length) === -1;
                 }
                 if (is_good) {
                   fil = curr;
