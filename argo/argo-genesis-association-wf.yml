@@ -6,6 +6,8 @@ spec:
   entrypoint: null_model
   arguments:
     parameters:
+      - name: phenotype_file
+        description: Phenotype and covariates Rdata object.
       - name: n_pcs
         description: Number of PCs to include as covariates.
         default: 0
