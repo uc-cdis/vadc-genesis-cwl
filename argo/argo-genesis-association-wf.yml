@@ -50,15 +50,8 @@ spec:
     - name: gateway
       persistentVolumeClaim:
         claimName: mariner-nfs-pvc
-
-  volumeClaimTemplates:
-    - metadata:
-        name: workdir
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 2Gi
+    - name: workdir
+      emptyDir: {}
 
   templates:
     - name: null_model
@@ -133,13 +126,22 @@ spec:
             mountPath: /commons-data
 
       outputs:
-        parameters:
+        artifacts:
           - name: null_model_directory
-            valueFrom:
-              path: "/mnt/vol/{{inputs.out_prefix}}_datadir"
+            path: "/mnt/vol/{{inputs.out_prefix}}_datadir"
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.out_prefix}}_datadir"
           - name: null_model_phenotype
-            valueFrom:
-              path: "/mnt/vol/{{inputs.out_prefix}}_phenotypes.Rdata"
+            path: "/mnt/vol/{{inputs.out_prefix}}_phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.out_prefix}}_phenotypes.Rdata"
           - name: null_model_report_directory
-            valueFrom:
-              path: "/mnt/vol/{{inputs.out_prefix}}_reports"
+            path: "/mnt/vol/{{inputs.out_prefix}}_reports"
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.out_prefix}}_reports"
