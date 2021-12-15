@@ -1,0 +1,143 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: vadc-gwas-
+spec:
+  entrypoint: null_model
+  arguments:
+    parameters:
+      - name: n_pcs
+        description: Number of PCs to include as covariates.
+        default: 0
+      - name: covariates
+        description: |-
+          Names of columns phenotype_file containing covariates. Separate by spaces.
+          e.g., `gender height healthy`
+      - name: out_prefix
+        description: Prefix for files created by the workflow.
+        default: genesis_vadc
+      - name: outcome
+        description: Name of column in phenotype_file containing outcome variable.
+      - name: outcome_is_binary
+        description: |-
+          TRUE if outcome is a binary (case/control) variable;
+          FALSE if outcome is a continuous variable.
+        enum:
+          - "TRUE"
+          - "FALSE"
+        default: "FALSE"
+      - name: pca_file
+        description: RData file with PCA results created by PC-AiR.
+      - name: relatedness_matrix_file
+        description: RData object with a kinship matrix.
+      - name: gds_files
+        description: List of GDS files
+      - name: genome_build
+        description: Genome build
+        enum:
+          - "hg38"
+          - "hg19"
+        default: "hg19"
+      - name: n_segments
+        description: Number of segments (overrides segment length).
+      - name: segment_length
+        description: Segment length in KB
+        default: 10000
+
+  volumes:
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: mariner-nfs-pvc
+
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 2Gi
+
+  templates:
+    - name: null_model
+      dag:
+        tasks:
+          - name: run-null-model
+            template: run-null-model
+            arguments:
+              parameters:
+                - name: n_pcs
+                  value: "{{workflow.parameters.n_pcs}}"
+                - name: covariates
+                  value: "{{workflow.parameters.covariates}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}_null_model"
+                - name: outcome
+                  value: "{{workflow.parameters.outcome}}"
+                - name: outcome_is_binary
+                  value: "{{workflow.parameters.outcome_is_binary}}"
+                - name: pca_file
+                  value: "{{workflow.parameters.pca_file}}"
+                - name: phenotype_file
+                  value: "{{workflow.parameters.phenotype_file}}"
+                - name: relatedness_matrix_file
+                  value: "{{workflow.parameters.relatedness_matrix_file}}"
+    - name: run-null-model
+      inputs:
+        parameters:
+          - name: n_pcs
+          - name: covariates
+          - name: out_prefix
+          - name: outcome
+          - name: outcome_is_binary
+          - name: pca_file
+          - name: phenotype_file
+          - name: relatedness_matrix_file
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          echo "out_prefix {{inputs.out_prefix}}" > null_model.config
+          echo "phenotype_file {{inputs.phenotype_file}}" >> null_model.config
+          echo "outcome {{inputs.outcome}}" >> null_model.config
+          echo "binary {{inputs.outcome_is_binary}}" >> null_model.config
+          echo "n_pcs {{inputs.n_pcs}}" >> null_model.config
+          echo "pca_file {{inputs.pca_file}}" >> null_model.config
+          echo "relatedness_matrix_file {{inputs.relatedness_matrix_file}}" >> null_model.config
+          echo "covariates {{inputs.covariates}}" >> null_model.config
+          echo "out_phenotype_file {{inputs.out_prefix}}_phenotypes.Rdata" >> null_model.config
+
+          set -xe
+          cat null_model.config
+
+          Rscript /usr/local/analysis_pipeline/R/null_model.R null_model.config
+          Rscript /usr/local/analysis_pipeline/R/null_model_report.R null_model.config --version 2.12.0
+          ls -al
+
+          DATADIR={{inputs.out_prefix}}_datadir
+          mkdir $DATADIR
+          mv {{inputs.out_prefix}}*.RData $DATADIR/
+
+          REPORTDIR={{inputs.out_prefix}}_reports
+          mkdir $REPORTDIR
+          mv *.html $REPORTDIR/
+          mv *.Rmd $REPORTDIR/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+
+      outputs:
+        parameters:
+          - name: null_model_directory
+            valueFrom:
+              path: "/mnt/vol/{{inputs.out_prefix}}_datadir"
+          - name: null_model_phenotype
+            valueFrom:
+              path: "/mnt/vol/{{inputs.out_prefix}}_phenotypes.Rdata"
+          - name: null_model_report_directory
+            valueFrom:
+              path: "/mnt/vol/{{inputs.out_prefix}}_reports"
