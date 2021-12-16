@@ -56,6 +56,10 @@ spec:
         description: Segment length in KB
         default: 10000
         value: 10000
+      - name: gds_files
+        description: Array of per-chromosome GDS files.
+        value:
+          - "/commons-data/hapmap-ceu_chr1.gds"
 
   volumes:
     - name: gateway
@@ -88,6 +92,35 @@ spec:
                   value: "{{workflow.parameters.phenotype_file}}"
                 - name: relatedness_matrix_file
                   value: "{{workflow.parameters.relatedness_matrix_file}}"
+
+          - name: define-segments
+            template: define-segments
+            arguments:
+              parameters:
+                - name: genome_build
+                  value: "{{workflow.parameters.genome_build}}"
+                - name: n_segments
+                  value: "{{workflow.parameters.n_segments}}"
+                - name: segment_length
+                  value: "{{workflow.parameters.segment_length}}"
+
+          - name: split-filename
+            template: split-filename
+            arguments:
+              parameters:
+                - name: gds_file
+                  value: "{{workflow.parameters.gds_files[0]}}"
+
+          - name: filter-segments
+            template: filter-segments
+            dependencies: [define-segments, split-filenames]
+            arguments:
+              parameters:
+                - name: file_prefix
+                  value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_prefix')}}"
+                - name: file_suffix
+                  value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_suffix')}}"
+
     - name: run-null-model
       inputs:
         parameters:
@@ -99,6 +132,7 @@ spec:
           - name: pca_file
           - name: phenotype_file
           - name: relatedness_matrix_file
+
       script:
         image: uwgac/topmed-master:2.12.0
         command: [bash]
@@ -156,3 +190,54 @@ spec:
               none: {}
             s3:
               key: "{{inputs.parameters.out_prefix}}_reports"
+
+    - name: define-segments
+      inputs:
+        parameters:
+          - name: genome_build
+          - name: n_segments
+          - name: segment_length
+
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          echo "genome_build {{inputs.parameters.genome_build}}" > define_segments.config
+          echo "out_file segments.txt" >> define_segments.config
+
+          Rscript /usr/local/analysis_pipeline/R/define_segments.R \
+          define_segments.config \
+          --segment_length {{inputs.parameters.segment_length}} \
+          --n_segments {{inputs.parameters.n_segments}}
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+
+        outputs:
+          artifacts:
+            - name: segment_file
+              path: "/mnt/vol/segments.txt"
+              archive:
+                none: {}
+              s3:
+                key: segments.txt
+
+    - name: split-filename
+      inputs:
+        parameters:
+          - name: gds_file
+      script:
+        image: python:3.7
+        command: [python3]
+        source: |
+          import json
+          import os
+
+          gds_file = "{{inputs.parameters.gds_file}}"
+          bname = os.path.basename(gds_file)
+          pfx = bname.split("chr")[0] + 'chr'
+          sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
+          dat = {"file_prefix": pfx, "file_suffix": sfx}
+          print(json.dump(dat))
