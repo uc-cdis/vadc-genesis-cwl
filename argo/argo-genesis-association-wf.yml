@@ -2,10 +2,13 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: vadc-gwas-
+  namespace: argo
 spec:
   entrypoint: null-model
   podGC:
     strategy: OnWorkflowSuccess
+  ttlStrategy:
+    secondsAfterCompletion: 300
   arguments:
     parameters:
       - name: phenotype_file
@@ -109,11 +112,11 @@ spec:
             arguments:
               parameters:
                 - name: gds_file
-                  value: "{{workflow.parameters.gds_files[0]}}"
+                  value: "{{=sprig.first(workflow.parameters.gds_files)}}"
 
           - name: filter-segments
             template: filter-segments
-            dependencies: [define-segments, split-filenames]
+            dependencies: [define-segments, split-filename]
             arguments:
               parameters:
                 - name: file_prefix
@@ -124,7 +127,7 @@ spec:
                   value: "{{workflow.parameters.gds_files}}"
               artifacts:
                 - name: segment_file
-                  value: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
+                  from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
 
     - name: run-null-model
       inputs:
@@ -220,14 +223,14 @@ spec:
           - name: workdir
             mountPath: /mnt/vol
 
-        outputs:
-          artifacts:
-            - name: segment_file
-              path: "/mnt/vol/segments.txt"
-              archive:
-                none: {}
-              s3:
-                key: segments.txt
+      outputs:
+        artifacts:
+          - name: segment_file
+            path: "/mnt/vol/segments.txt"
+            archive:
+              none: {}
+            s3:
+              key: segments.txt
 
     - name: split-filename
       inputs:
@@ -263,7 +266,7 @@ spec:
           import json
           import os
 
-          gds_files = set("{{ join \",\" .inputs.parameters.gds_filenames}}".split(","))
+          gds_files = set("{{= join \",\" .inputs.parameters.gds_filenames}}".split(","))
           file_prefix = "{{inputs.parameters.file_prefix}}"
           file_suffix = "{{inputs.parameters.file_suffix}}"
           segments_file = "{{inputs.artifacts.segment_file.path}}"
