@@ -63,8 +63,7 @@ spec:
         value: 10000
       - name: gds_files
         description: Array of per-chromosome GDS files.
-        value:
-          - "/commons-data/hapmap-ceu_chr1.gds"
+        value: '["/commons-data/hapmap-ceu_chr1.gds"]'
 
   volumes:
     - name: gateway
@@ -114,7 +113,7 @@ spec:
             arguments:
               parameters:
                 - name: gds_file
-                  value: "{{=workflow.parameters.gds_files[0]}}"
+                  value: "{{=map(jsonpath(workflow.parameters.gds_files, '$'), {#})[0]}}"
 
           - name: filter-segments
             template: filter-segments
@@ -244,15 +243,13 @@ spec:
         source: |
           import json
           import os
-          import sys
 
           gds_file = "{{inputs.parameters.gds_file}}"
-          sys.stderr.write(gds_file + "\n")
           bname = os.path.basename(gds_file)
           pfx = bname.split("chr")[0] + 'chr'
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
           dat = {"file_prefix": pfx, "file_suffix": sfx}
-          print(json.dump(dat))
+          print(json.dumps(dat))
 
     - name: filter-segments
       inputs:
@@ -285,7 +282,7 @@ spec:
                       segments += [n]
 
           dat = {
-            "chromosomes": list(chromosome_present),
+            "chromosomes": list(chromosomes_present),
             "segments": segments
           }
           print(json.dump(dat))
