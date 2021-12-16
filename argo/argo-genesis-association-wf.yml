@@ -120,6 +120,11 @@ spec:
                   value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_prefix')}}"
                 - name: file_suffix
                   value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_suffix')}}"
+                - name: gds_filenames
+                  value: "{{workflow.parameters.gds_files}}"
+              artifacts:
+                - name: segment_file
+                  value: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
 
     - name: run-null-model
       inputs:
@@ -240,4 +245,40 @@ spec:
           pfx = bname.split("chr")[0] + 'chr'
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
           dat = {"file_prefix": pfx, "file_suffix": sfx}
+          print(json.dump(dat))
+
+    - name: filter-segments
+      inputs:
+        parameters:
+          - name: gds_filenames
+          - name: file_prefix
+          - name: file_suffix
+        artifacts:
+          - name: segment_file
+            path: "/mnt/vol/segments.txt"
+      script:
+        image: python:3.7
+        command: [python3]
+        source: |
+          import json
+          import os
+
+          gds_files = set("{{ join \",\" .inputs.parameters.gds_filenames}}".split(","))
+          file_prefix = "{{inputs.parameters.file_prefix}}"
+          file_suffix = "{{inputs.parameters.file_suffix}}"
+          segments_file = "{{inputs.artifacts.segment_file.path}}"
+
+          chromosomes_present = set()
+          segments = []
+          with open(segments_file, "rt") as f:
+              for n, line in enumerate(f.readlines()):
+                  chrom = line.split()[0]
+                  if file_prefix + chrom + file_suffix in gds_files:
+                      chromosomes_present.add(chrom)
+                      segments += [n]
+
+          dat = {
+            "chromosomes": list(chromosome_present),
+            "segments": segments
+          }
           print(json.dump(dat))
