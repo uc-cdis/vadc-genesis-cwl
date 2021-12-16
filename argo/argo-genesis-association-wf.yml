@@ -63,7 +63,7 @@ spec:
         value: 10000
       - name: gds_files
         description: Array of per-chromosome GDS files.
-        value: '["/commons-data/hapmap-ceu_chr1.gds"]'
+        value: '["/commons-data/hapmap-ceu_chr1.gds", "/commons-data/hapmap-ceu_chr2.gds"]'
 
   volumes:
     - name: gateway
@@ -153,7 +153,8 @@ spec:
                 - name: phenotype_file
                   from: "{{tasks.run-null-model.outputs.artifacts.null_model_phenotype}}"
                 - name: null_model_results
-                  from: "{{tasks.run-null-model.outputs.artifacts.null_model_directory}}"
+                  s3:
+                    key: "{{workflow.parameters.out_prefix}}_null_model_datadir/{{workflow.parameters.out_prefix}}_null_model_invnorm.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
 
     - name: run-null-model
@@ -334,7 +335,7 @@ spec:
             path: "/mnt/vol/segments.txt"
           - name: null_model_results
             mode: 0777
-            path: "/mnt/vol/null_model_results"
+            path: "/mnt/vol/null_model_invnorm.RData"
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
@@ -349,8 +350,8 @@ spec:
 
           echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
           echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
-          echo "gds_file {{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}" >> assoc_single.config
-          echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
+          echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
+          echo "null_model_file null_model_invnorm.RData" >> assoc_single.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
           echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
 
