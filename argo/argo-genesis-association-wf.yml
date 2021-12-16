@@ -121,14 +121,40 @@ spec:
             arguments:
               parameters:
                 - name: file_prefix
-                  value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_prefix')}}"
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_prefix')}}"
                 - name: file_suffix
-                  value: "{{=jsonpath(tasks.split-filename.outputs.result, '$.file_suffix')}}"
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
                 - name: gds_filenames
                   value: "{{workflow.parameters.gds_files}}"
               artifacts:
                 - name: segment_file
                   from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
+
+          - name: run-single-assoc
+            template: run-single-assoc
+            dependencies: [run-null-model, filter-segments, split-filename]
+            arguments:
+              parameters:
+                - name: file_prefix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_prefix')}}"
+                - name: file_suffix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
+                - name: gds_files
+                  value: "{{workflow.parameters.gds_files}}"
+                - name: genome_build
+                  value: "{{workflow.parameters.genome_build}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+                - name: segment
+                  value: "{{item}}"
+              artifacts:
+                - name: segment_file
+                  from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
+                - name: phenotype_file
+                  from: "{{tasks.run-null-model.outputs.artifacts.null_model_phenotype}}"
+                - name: null_model_results
+                  from: "{{tasks.run-null-model.outputs.artifacts.null_model_directory}}"
+            withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
 
     - name: run-null-model
       inputs:
@@ -243,13 +269,14 @@ spec:
         source: |
           import json
           import os
+          import sys
 
           gds_file = "{{inputs.parameters.gds_file}}"
           bname = os.path.basename(gds_file)
           pfx = bname.split("chr")[0] + 'chr'
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
           dat = {"file_prefix": pfx, "file_suffix": sfx}
-          print(json.dumps(dat))
+          json.dump(dat, sys.stdout)
 
     - name: filter-segments
       inputs:
@@ -266,8 +293,9 @@ spec:
         source: |
           import json
           import os
+          import sys
 
-          gds_files = set("{{= join \",\" .inputs.parameters.gds_filenames}}".split(","))
+          gds_files = set([os.path.basename(i) for i in {{inputs.parameters.gds_filenames}}])
           file_prefix = "{{inputs.parameters.file_prefix}}"
           file_suffix = "{{inputs.parameters.file_suffix}}"
           segments_file = "{{inputs.artifacts.segment_file.path}}"
@@ -285,4 +313,67 @@ spec:
             "chromosomes": list(chromosomes_present),
             "segments": segments
           }
-          print(json.dumps(dat))
+          json.dump(dat, sys.stdout)
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+
+    - name: run-single-assoc
+      inputs:
+        parameters:
+          - name: gds_files
+          - name: out_prefix
+          - name: genome_build
+          - name: file_prefix
+          - name: file_suffix
+          - name: segment
+        artifacts:
+          - name: segment_file
+            mode: 0777
+            path: "/mnt/vol/segments.txt"
+          - name: null_model_results
+            mode: 0777
+            path: "/mnt/vol/null_model_results"
+          - name: phenotype_file
+            mode: 0777
+            path: "/mnt/vol/phenotypes.RData"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          for fil in {{=sprig.join(" ", map(jsonpath(inputs.parameters.gds_files, '$'), {#}))}}; do
+              ln -s $fil .
+          done
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
+          echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
+          echo "gds_file {{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}" >> assoc_single.config
+          echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
+          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
+          echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
+
+          cat assoc_single.config
+          ls -al
+
+          set -xe
+          CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
+          echo $CHROM
+          Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment {{inputs.parameters.segment}}
+          mkdir single_assoc_chunks
+          mv {{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData single_assoc_chunks/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+      outputs:
+        artifacts:
+          - name: single_assoc_segment_output
+            path: "/mnt/vol/single_assoc_chunks"
+            archive:
+              none: {}
+            s3:
+              key: "single_assoc_chunks"
