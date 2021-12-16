@@ -3,6 +3,8 @@ kind: Workflow
 metadata:
   generateName: vadc-gwas-
   namespace: argo
+  annotations:
+    workflows.argoproj.io/version: ">= 3.1.0"
 spec:
   entrypoint: null-model
   podGC:
@@ -112,7 +114,7 @@ spec:
             arguments:
               parameters:
                 - name: gds_file
-                  value: "{{=sprig.first(workflow.parameters.gds_files)}}"
+                  value: "{{=workflow.parameters.gds_files[0]}}"
 
           - name: filter-segments
             template: filter-segments
@@ -242,8 +244,10 @@ spec:
         source: |
           import json
           import os
+          import sys
 
           gds_file = "{{inputs.parameters.gds_file}}"
+          sys.stderr.write(gds_file + "\n")
           bname = os.path.basename(gds_file)
           pfx = bname.split("chr")[0] + 'chr'
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
