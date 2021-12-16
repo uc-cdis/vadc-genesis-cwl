@@ -285,4 +285,4 @@ spec:
             "chromosomes": list(chromosomes_present),
             "segments": segments
           }
-          print(json.dump(dat))
+          print(json.dumps(dat))
