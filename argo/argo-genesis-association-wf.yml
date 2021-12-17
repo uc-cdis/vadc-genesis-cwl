@@ -9,8 +9,6 @@ spec:
   entrypoint: null-model
   podGC:
     strategy: OnWorkflowSuccess
-  ttlStrategy:
-    secondsAfterCompletion: 300
   arguments:
     parameters:
       - name: phenotype_file
@@ -63,7 +61,11 @@ spec:
         value: 10000
       - name: gds_files
         description: Array of per-chromosome GDS files.
-        value: '["/commons-data/hapmap-ceu_chr1.gds", "/commons-data/hapmap-ceu_chr2.gds"]'
+        value: |-
+          [
+            "/commons-data/hapmap-ceu_chr1.gds",
+            "/commons-data/hapmap-ceu_chr2.gds"
+          ]
 
   volumes:
     - name: gateway
@@ -156,6 +158,35 @@ spec:
                   s3:
                     key: "{{workflow.parameters.out_prefix}}_null_model_datadir/{{workflow.parameters.out_prefix}}_null_model_invnorm.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
+
+          - name: combine-shards
+            template: combine-shards
+            dependencies: [run-single-assoc]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: file_shards
+                  s3:
+                    key: "single_assoc_chunks"
+            withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+
+          - name: run-plots
+            template: run-plots
+            dependencies: [combine-shards]
+            arguments:
+              parameters:
+                - name: chromosomes
+                  value: "{{=sprig.join(' ', jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: combined
+                  s3:
+                    key: "single_assoc_combined"
 
     - name: run-null-model
       inputs:
@@ -378,3 +409,92 @@ spec:
               none: {}
             s3:
               key: "single_assoc_chunks"
+
+    - name: combine-shards
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: out_prefix
+        artifacts:
+          - name: file_shards
+            mode: 0777
+            path: "/mnt/vol/file_shards"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        securityContext:
+          runAsUser: 0
+        command: [bash]
+        source: |
+          cd {{inputs.artifacts.file_shards.path}}
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_combine.config
+          echo "assoc_type \"single\"" >> assoc_combine.config
+
+          cat assoc_combine.config
+          ls -al
+
+          set -xe
+          Rscript /usr/local/analysis_pipeline/R/assoc_combine.R \
+          assoc_combine.config \
+          --chromosome {{inputs.parameters.chromosome}}
+          mkdir single_assoc_combined
+          mv {{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.RData single_assoc_combined/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: single_assoc_combined
+            path: "{{inputs.artifacts.file_shards.path}}/single_assoc_combined"
+            archive:
+              none: {}
+            s3:
+              key: "single_assoc_combined"
+
+    - name: run-plots
+      inputs:
+        parameters:
+          - name: chromosomes
+          - name: out_prefix
+        artifacts:
+          - name: combined
+            mode: 0777
+            path: "/mnt/vol/combined"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        securityContext:
+          runAsUser: 0
+        command: [bash]
+        source: |
+          cd {{inputs.artifacts.combined.path}}
+
+          echo "assoc_type \"single\"" > plots.config
+          echo "assoc_file \"{{inputs.parameters.out_prefix}}_chr .RData\"" >> plots.config
+          echo "chromosomes \"{{inputs.parameters.chromosomes}}\"" >> plots.config
+          echo "out_file_manh \"{{inputs.parameters.out_prefix}}_manhattan.png\"" >> plots.config
+          echo "out_file_qq \"{{inputs.parameters.out_prefix}}_qq.png\"" >> plots.config
+
+          cat plots.config
+          ls -al
+
+          set -xe
+          Rscript /usr/local/analysis_pipeline/R/assoc_plots.R plots.config
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: manhattan_plot
+            path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_manhattan.png"
+            archive:
+              none: {}
+            s3:
+              key: "gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
+          - name: qq_plot
+            path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
+            archive:
+              none: {}
+            s3:
+              key: "gwas_plots/{{inputs.parameters.out_prefix}}_qq.png"
