@@ -241,6 +241,7 @@ spec:
         artifacts:
           - name: null_model_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_datadir"
+            globalName: null_model_results_directory
             archive:
               none: {}
             s3:
@@ -252,6 +253,7 @@ spec:
             s3:
               key: "{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
           - name: null_model_report_directory
+            globalName: null_model_reports_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_reports"
             archive:
               none: {}
@@ -273,10 +275,15 @@ spec:
           echo "genome_build {{inputs.parameters.genome_build}}" > define_segments.config
           echo "out_file segments.txt" >> define_segments.config
 
+          if [[ "{{inputs.parameters.n_segments}}" == "0" ]]; then
+              NSEG=""
+          else
+              NSEG=" --n_segments {{inputs.parameters.n_segments}}"
+          fi
+
           Rscript /usr/local/analysis_pipeline/R/define_segments.R \
           define_segments.config \
-          --segment_length {{inputs.parameters.segment_length}} \
-          --n_segments {{inputs.parameters.n_segments}}
+          --segment_length {{inputs.parameters.segment_length}}${NSEG}
 
         volumeMounts:
           - name: workdir
@@ -446,6 +453,7 @@ spec:
       outputs:
         artifacts:
           - name: single_assoc_combined
+            globalName: single_assoc_combined
             path: "{{inputs.artifacts.file_shards.path}}/single_assoc_combined"
             archive:
               none: {}
@@ -487,12 +495,14 @@ spec:
       outputs:
         artifacts:
           - name: manhattan_plot
+            globalName: gwas_manhattan_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_manhattan.png"
             archive:
               none: {}
             s3:
               key: "gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
           - name: qq_plot
+            globalName: gwas_qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
               none: {}
