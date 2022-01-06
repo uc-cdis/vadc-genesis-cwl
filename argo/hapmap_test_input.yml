@@ -1,0 +1,8 @@
+n_pcs: 3
+n_segments: 1
+out_prefix: test
+outcome: height
+phenotype_file: /commons-data/hapmap_pheno_demo.RData
+pca_file: /commons-data/hapmap_test_pcair_pca.RData
+relatedness_matrix_file: /commons-data/hapmap_test_pcrelate_pcrelate_Matrix.RData
+covariates: gender Hare

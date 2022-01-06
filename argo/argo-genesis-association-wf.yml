@@ -1,0 +1,572 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: vadc-gwas-
+  namespace: argo
+  annotations:
+    workflows.argoproj.io/version: ">= 3.1.0"
+spec:
+  entrypoint: null-model
+  podGC:
+    strategy: OnWorkflowSuccess
+  arguments:
+    parameters:
+      - name: pheno_csv_key
+        description: S3 key for phenotype CSV file.
+        value: hapmap_pheno_demo.csv
+      - name: n_pcs
+        description: Number of PCs to include as covariates.
+        default: 0
+        value: 3 
+      - name: covariates
+        description: |-
+          Names of columns phenotype_file containing covariates. Separate by spaces.
+          e.g., `gender height healthy`
+        value: gender Hare
+      - name: out_prefix
+        description: Prefix for files created by the workflow.
+        default: genesis_vadc
+        value: test
+      - name: outcome
+        description: Name of column in phenotype_file containing outcome variable.
+        value: height
+      - name: outcome_is_binary
+        description: |-
+          TRUE if outcome is a binary (case/control) variable;
+          FALSE if outcome is a continuous variable.
+        enum:
+          - "TRUE"
+          - "FALSE"
+        default: "FALSE"
+        value: "FALSE"
+      - name: pca_file
+        description: RData file with PCA results created by PC-AiR.
+        value: /commons-data/hapmap_test_pcair_pca.RData
+      - name: relatedness_matrix_file
+        description: RData object with a kinship matrix.
+        value: /commons-data/hapmap_test_pcrelate_pcrelate_Matrix.RData
+      - name: genome_build
+        description: Genome build
+        enum:
+          - "hg38"
+          - "hg19"
+        default: "hg19"
+        value: "hg19"
+      - name: n_segments
+        description: Number of segments (overrides segment length).
+        value: 1
+      - name: segment_length
+        description: Segment length in KB
+        default: 10000
+        value: 10000
+      - name: gds_files
+        description: Array of per-chromosome GDS files.
+        value: |-
+          [
+            "/commons-data/hapmap-ceu_chr1.gds",
+            "/commons-data/hapmap-ceu_chr2.gds",
+            "/commons-data/hapmap-ceu_chr3.gds",
+            "/commons-data/hapmap-ceu_chr4.gds",
+            "/commons-data/hapmap-ceu_chr5.gds",
+            "/commons-data/hapmap-ceu_chr6.gds",
+            "/commons-data/hapmap-ceu_chr7.gds",
+            "/commons-data/hapmap-ceu_chr8.gds",
+            "/commons-data/hapmap-ceu_chr9.gds",
+            "/commons-data/hapmap-ceu_chr10.gds",
+            "/commons-data/hapmap-ceu_chr11.gds",
+            "/commons-data/hapmap-ceu_chr12.gds",
+            "/commons-data/hapmap-ceu_chr13.gds",
+            "/commons-data/hapmap-ceu_chr14.gds",
+            "/commons-data/hapmap-ceu_chr15.gds",
+            "/commons-data/hapmap-ceu_chr16.gds",
+            "/commons-data/hapmap-ceu_chr17.gds",
+            "/commons-data/hapmap-ceu_chr18.gds",
+            "/commons-data/hapmap-ceu_chr19.gds",
+            "/commons-data/hapmap-ceu_chr20.gds",
+            "/commons-data/hapmap-ceu_chr21.gds",
+            "/commons-data/hapmap-ceu_chr22.gds"
+          ]
+
+  volumes:
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: mariner-nfs-pvc
+    - name: workdir
+      emptyDir: {}
+
+  templates:
+    - name: null-model
+      dag:
+        tasks:
+          - name: generate-pheno
+            template: generate-pheno
+            arguments:
+              artifacts:
+                - name: pheno_csv
+                  s3:
+                    key: "{{workflow.parameters.pheno_csv_key}}"
+
+          - name: run-null-model
+            template: run-null-model
+            dependencies: [generate-pheno]
+            arguments:
+              parameters:
+                - name: n_pcs
+                  value: "{{workflow.parameters.n_pcs}}"
+                - name: covariates
+                  value: "{{workflow.parameters.covariates}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}_null_model"
+                - name: outcome
+                  value: "{{workflow.parameters.outcome}}"
+                - name: outcome_is_binary
+                  value: "{{workflow.parameters.outcome_is_binary}}"
+                - name: pca_file
+                  value: "{{workflow.parameters.pca_file}}"
+                - name: relatedness_matrix_file
+                  value: "{{workflow.parameters.relatedness_matrix_file}}"
+              artifacts:
+                - name: phenotype_file
+                  from: "{{tasks.generate-pheno.outputs.artifacts.phenotype_file}}"
+
+          - name: define-segments
+            template: define-segments
+            arguments:
+              parameters:
+                - name: genome_build
+                  value: "{{workflow.parameters.genome_build}}"
+                - name: n_segments
+                  value: "{{workflow.parameters.n_segments}}"
+                - name: segment_length
+                  value: "{{workflow.parameters.segment_length}}"
+
+          - name: split-filename
+            template: split-filename
+            arguments:
+              parameters:
+                - name: gds_file
+                  value: "{{=map(jsonpath(workflow.parameters.gds_files, '$'), {#})[0]}}"
+
+          - name: filter-segments
+            template: filter-segments
+            dependencies: [define-segments, split-filename]
+            arguments:
+              parameters:
+                - name: file_prefix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_prefix')}}"
+                - name: file_suffix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
+                - name: gds_filenames
+                  value: "{{workflow.parameters.gds_files}}"
+              artifacts:
+                - name: segment_file
+                  from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
+
+          - name: run-single-assoc
+            template: run-single-assoc
+            dependencies: [run-null-model, filter-segments, split-filename]
+            arguments:
+              parameters:
+                - name: file_prefix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_prefix')}}"
+                - name: file_suffix
+                  value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
+                - name: gds_files
+                  value: "{{workflow.parameters.gds_files}}"
+                - name: genome_build
+                  value: "{{workflow.parameters.genome_build}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+                - name: segment
+                  value: "{{item}}"
+              artifacts:
+                - name: segment_file
+                  from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
+                - name: phenotype_file
+                  from: "{{tasks.run-null-model.outputs.artifacts.null_model_phenotype}}"
+                - name: null_model_results
+                  s3:
+                    key: "{{workflow.parameters.out_prefix}}_null_model_datadir/{{workflow.parameters.out_prefix}}_null_model_invnorm.RData"
+            withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
+
+          - name: combine-shards
+            template: combine-shards
+            dependencies: [run-single-assoc]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: file_shards
+                  s3:
+                    key: "single_assoc_chunks"
+            withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+
+          - name: run-plots
+            template: run-plots
+            dependencies: [combine-shards]
+            arguments:
+              parameters:
+                - name: chromosomes
+                  value: "{{=sprig.join(' ', jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: combined
+                  s3:
+                    key: "single_assoc_combined"
+
+    - name: generate-pheno
+      inputs:
+        artifacts:
+          - name: pheno_csv
+            mode: 0777
+            path: "/mnt/vol/phenotypes.csv"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [Rscript]
+        source: |
+          library(Biobase)
+
+          dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}", stringsAsFactors=FALSE)
+          annot <- AnnotatedDataFrame(dat.csv)
+          stopifnot("sample.id" %in% varLabels(annot))
+          save(annot, file="/mnt/vol/phenotypes.Rdata")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: phenotype_file
+            path: "/mnt/vol/phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "phenotypes.Rdata"
+
+    - name: run-null-model
+      inputs:
+        parameters:
+          - name: n_pcs
+          - name: covariates
+          - name: out_prefix
+          - name: outcome
+          - name: outcome_is_binary
+          - name: pca_file
+          - name: relatedness_matrix_file
+        artifacts:
+          - name: phenotype_file
+            mode: 0777
+            path: "/mnt/vol/phenotypes.Rdata"
+
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > null_model.config
+          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> null_model.config
+          echo "outcome {{inputs.parameters.outcome}}" >> null_model.config
+          echo "binary {{inputs.parameters.outcome_is_binary}}" >> null_model.config
+          echo "n_pcs {{inputs.parameters.n_pcs}}" >> null_model.config
+          echo "pca_file {{inputs.parameters.pca_file}}" >> null_model.config
+          echo "relatedness_matrix_file {{inputs.parameters.relatedness_matrix_file}}" >> null_model.config
+          echo "covariates \"{{inputs.parameters.covariates}}\"" >> null_model.config
+          echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> null_model.config
+
+          set -xe
+          cat null_model.config
+
+          Rscript /usr/local/analysis_pipeline/R/null_model.R null_model.config
+          Rscript /usr/local/analysis_pipeline/R/null_model_report.R null_model.config --version 2.12.0
+          ls -al
+
+          DATADIR={{inputs.parameters.out_prefix}}_datadir
+          mkdir $DATADIR
+          mv {{inputs.parameters.out_prefix}}*.RData $DATADIR/
+
+          REPORTDIR={{inputs.parameters.out_prefix}}_reports
+          mkdir $REPORTDIR
+          mv *.html $REPORTDIR/
+          mv *.Rmd $REPORTDIR/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+
+      outputs:
+        artifacts:
+          - name: null_model_directory
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}_datadir"
+            globalName: null_model_results_directory
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.parameters.out_prefix}}_datadir"
+          - name: null_model_phenotype
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
+          - name: null_model_report_directory
+            globalName: null_model_reports_directory
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}_reports"
+            archive:
+              none: {}
+            s3:
+              key: "{{inputs.parameters.out_prefix}}_reports"
+
+    - name: define-segments
+      inputs:
+        parameters:
+          - name: genome_build
+          - name: n_segments
+          - name: segment_length
+
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          echo "genome_build {{inputs.parameters.genome_build}}" > define_segments.config
+          echo "out_file segments.txt" >> define_segments.config
+
+          if [[ "{{inputs.parameters.n_segments}}" == "0" ]]; then
+              NSEG=""
+          else
+              NSEG=" --n_segments {{inputs.parameters.n_segments}}"
+          fi
+
+          Rscript /usr/local/analysis_pipeline/R/define_segments.R \
+          define_segments.config \
+          --segment_length {{inputs.parameters.segment_length}}${NSEG}
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+
+      outputs:
+        artifacts:
+          - name: segment_file
+            path: "/mnt/vol/segments.txt"
+            archive:
+              none: {}
+            s3:
+              key: segments.txt
+
+    - name: split-filename
+      inputs:
+        parameters:
+          - name: gds_file
+      script:
+        image: python:3.7
+        command: [python3]
+        source: |
+          import json
+          import os
+          import sys
+
+          gds_file = "{{inputs.parameters.gds_file}}"
+          bname = os.path.basename(gds_file)
+          pfx = bname.split("chr")[0] + 'chr'
+          sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
+          dat = {"file_prefix": pfx, "file_suffix": sfx}
+          json.dump(dat, sys.stdout)
+
+    - name: filter-segments
+      inputs:
+        parameters:
+          - name: gds_filenames
+          - name: file_prefix
+          - name: file_suffix
+        artifacts:
+          - name: segment_file
+            path: "/mnt/vol/segments.txt"
+      script:
+        image: python:3.7
+        command: [python3]
+        source: |
+          import json
+          import os
+          import sys
+
+          gds_files = set([os.path.basename(i) for i in {{inputs.parameters.gds_filenames}}])
+          file_prefix = "{{inputs.parameters.file_prefix}}"
+          file_suffix = "{{inputs.parameters.file_suffix}}"
+          segments_file = "{{inputs.artifacts.segment_file.path}}"
+
+          chromosomes_present = set()
+          segments = []
+          with open(segments_file, "rt") as f:
+              for n, line in enumerate(f.readlines()):
+                  chrom = line.split()[0]
+                  if file_prefix + chrom + file_suffix in gds_files:
+                      chromosomes_present.add(chrom)
+                      segments += [n]
+
+          dat = {
+            "chromosomes": list(chromosomes_present),
+            "segments": segments
+          }
+          json.dump(dat, sys.stdout)
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+
+    - name: run-single-assoc
+      inputs:
+        parameters:
+          - name: gds_files
+          - name: out_prefix
+          - name: genome_build
+          - name: file_prefix
+          - name: file_suffix
+          - name: segment
+        artifacts:
+          - name: segment_file
+            mode: 0777
+            path: "/mnt/vol/segments.txt"
+          - name: null_model_results
+            mode: 0777
+            path: "/mnt/vol/null_model_invnorm.RData"
+          - name: phenotype_file
+            mode: 0777
+            path: "/mnt/vol/phenotypes.RData"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        command: [bash]
+        source: |
+          cd /mnt/vol
+          for fil in {{=sprig.join(" ", map(jsonpath(inputs.parameters.gds_files, '$'), {#}))}}; do
+              ln -s $fil .
+          done
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
+          echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
+          echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
+          echo "null_model_file null_model_invnorm.RData" >> assoc_single.config
+          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
+          echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
+
+          cat assoc_single.config
+          ls -al
+
+          set -xe
+          CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
+          echo $CHROM
+          Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment {{inputs.parameters.segment}}
+          mkdir single_assoc_chunks
+          mv {{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData single_assoc_chunks/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+      outputs:
+        artifacts:
+          - name: single_assoc_segment_output
+            path: "/mnt/vol/single_assoc_chunks"
+            archive:
+              none: {}
+            s3:
+              key: "single_assoc_chunks"
+
+    - name: combine-shards
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: out_prefix
+        artifacts:
+          - name: file_shards
+            mode: 0777
+            path: "/mnt/vol/file_shards"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        securityContext:
+          runAsUser: 0
+        command: [bash]
+        source: |
+          cd {{inputs.artifacts.file_shards.path}}
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_combine.config
+          echo "assoc_type \"single\"" >> assoc_combine.config
+
+          cat assoc_combine.config
+          ls -al
+
+          set -xe
+          Rscript /usr/local/analysis_pipeline/R/assoc_combine.R \
+          assoc_combine.config \
+          --chromosome {{inputs.parameters.chromosome}}
+          mkdir single_assoc_combined
+          mv {{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.RData single_assoc_combined/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: single_assoc_combined
+            globalName: single_assoc_combined
+            path: "{{inputs.artifacts.file_shards.path}}/single_assoc_combined"
+            archive:
+              none: {}
+            s3:
+              key: "single_assoc_combined"
+
+    - name: run-plots
+      inputs:
+        parameters:
+          - name: chromosomes
+          - name: out_prefix
+        artifacts:
+          - name: combined
+            mode: 0777
+            path: "/mnt/vol/combined"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        securityContext:
+          runAsUser: 0
+        command: [bash]
+        source: |
+          cd {{inputs.artifacts.combined.path}}
+
+          echo "assoc_type \"single\"" > plots.config
+          echo "assoc_file \"{{inputs.parameters.out_prefix}}_chr .RData\"" >> plots.config
+          echo "chromosomes \"{{inputs.parameters.chromosomes}}\"" >> plots.config
+          echo "out_file_manh \"{{inputs.parameters.out_prefix}}_manhattan.png\"" >> plots.config
+          echo "out_file_qq \"{{inputs.parameters.out_prefix}}_qq.png\"" >> plots.config
+
+          cat plots.config
+          ls -al
+
+          set -xe
+          Rscript /usr/local/analysis_pipeline/R/assoc_plots.R plots.config
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: manhattan_plot
+            globalName: gwas_manhattan_plot
+            path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_manhattan.png"
+            archive:
+              none: {}
+            s3:
+              key: "gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
+          - name: qq_plot
+            globalName: gwas_qq_plot
+            path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
+            archive:
+              none: {}
+            s3:
+              key: "gwas_plots/{{inputs.parameters.out_prefix}}_qq.png"
