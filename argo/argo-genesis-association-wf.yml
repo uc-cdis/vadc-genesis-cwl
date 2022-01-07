@@ -13,23 +13,23 @@ spec:
     parameters:
       - name: pheno_csv_key
         description: S3 key for phenotype CSV file.
-        value: hapmap_pheno_demo.csv
+        value: 20k.prod_height_pheno.csv
       - name: n_pcs
         description: Number of PCs to include as covariates.
         default: 0
-        value: 3 
+        value: 10
       - name: covariates
         description: |-
           Names of columns phenotype_file containing covariates. Separate by spaces.
           e.g., `gender height healthy`
-        value: gender Hare
+        value: gender age Hare
       - name: out_prefix
         description: Prefix for files created by the workflow.
         default: genesis_vadc
-        value: test
+        value: 20k_vhdcprod_height
       - name: outcome
         description: Name of column in phenotype_file containing outcome variable.
-        value: height
+        value: Height
       - name: outcome_is_binary
         description: |-
           TRUE if outcome is a binary (case/control) variable;
@@ -41,10 +41,10 @@ spec:
         value: "FALSE"
       - name: pca_file
         description: RData file with PCA results created by PC-AiR.
-        value: /commons-data/hapmap_test_pcair_pca.RData
+        value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
         description: RData object with a kinship matrix.
-        value: /commons-data/hapmap_test_pcrelate_pcrelate_Matrix.RData
+        value: /commons-data/KINGmatDeg3.RData
       - name: genome_build
         description: Genome build
         enum:
@@ -54,7 +54,7 @@ spec:
         value: "hg19"
       - name: n_segments
         description: Number of segments (overrides segment length).
-        value: 1
+        value: 0
       - name: segment_length
         description: Segment length in KB
         default: 10000
@@ -63,28 +63,7 @@ spec:
         description: Array of per-chromosome GDS files.
         value: |-
           [
-            "/commons-data/hapmap-ceu_chr1.gds",
-            "/commons-data/hapmap-ceu_chr2.gds",
-            "/commons-data/hapmap-ceu_chr3.gds",
-            "/commons-data/hapmap-ceu_chr4.gds",
-            "/commons-data/hapmap-ceu_chr5.gds",
-            "/commons-data/hapmap-ceu_chr6.gds",
-            "/commons-data/hapmap-ceu_chr7.gds",
-            "/commons-data/hapmap-ceu_chr8.gds",
-            "/commons-data/hapmap-ceu_chr9.gds",
-            "/commons-data/hapmap-ceu_chr10.gds",
-            "/commons-data/hapmap-ceu_chr11.gds",
-            "/commons-data/hapmap-ceu_chr12.gds",
-            "/commons-data/hapmap-ceu_chr13.gds",
-            "/commons-data/hapmap-ceu_chr14.gds",
-            "/commons-data/hapmap-ceu_chr15.gds",
-            "/commons-data/hapmap-ceu_chr16.gds",
-            "/commons-data/hapmap-ceu_chr17.gds",
-            "/commons-data/hapmap-ceu_chr18.gds",
-            "/commons-data/hapmap-ceu_chr19.gds",
-            "/commons-data/hapmap-ceu_chr20.gds",
-            "/commons-data/hapmap-ceu_chr21.gds",
-            "/commons-data/hapmap-ceu_chr22.gds"
+            "/commons-data/hapmap-ceu_chr1.gds/gds_data/chr22.gds"
           ]
 
   volumes:
@@ -224,6 +203,10 @@ spec:
           - name: pheno_csv
             mode: 0777
             path: "/mnt/vol/phenotypes.csv"
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
       script:
         image: uwgac/topmed-master:2.12.0
         command: [Rscript]
@@ -261,11 +244,16 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.Rdata"
+      resources:
+        requests:
+          cpu: 2500m
+          memory: 2Gi
 
       script:
         image: uwgac/topmed-master:2.12.0
         command: [bash]
         source: |
+          export NSLOTS=2
           cd /mnt/vol
           echo "out_prefix {{inputs.parameters.out_prefix}}" > null_model.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> null_model.config
@@ -328,6 +316,10 @@ spec:
           - name: genome_build
           - name: n_segments
           - name: segment_length
+      resources:
+        requests:
+          cpu: 256m
+          memory: 512Mi
 
       script:
         image: uwgac/topmed-master:2.12.0
@@ -364,6 +356,10 @@ spec:
       inputs:
         parameters:
           - name: gds_file
+      resources:
+        requests:
+          cpu: 50m
+          memory: 50Mi
       script:
         image: python:3.7
         command: [python3]
@@ -388,6 +384,10 @@ spec:
         artifacts:
           - name: segment_file
             path: "/mnt/vol/segments.txt"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 50Mi
       script:
         image: python:3.7
         command: [python3]
@@ -439,6 +439,10 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
+      resources:
+        requests:
+          cpu: 2000m
+          memory: 6000Mi
       script:
         image: uwgac/topmed-master:2.12.0
         command: [bash]
@@ -461,7 +465,10 @@ spec:
           set -xe
           CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
           echo $CHROM
-          Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM --segment {{inputs.parameters.segment}}
+          Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM \
+          --segment {{inputs.parameters.segment}} \
+          --num_cores 2
+
           mkdir single_assoc_chunks
           mv {{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData single_assoc_chunks/
 
@@ -488,6 +495,10 @@ spec:
           - name: file_shards
             mode: 0777
             path: "/mnt/vol/file_shards"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 2000Mi
       script:
         image: uwgac/topmed-master:2.12.0
         securityContext:
@@ -531,6 +542,10 @@ spec:
           - name: combined
             mode: 0777
             path: "/mnt/vol/combined"
+      resources:
+        requests:
+          cpu: 256m
+          memory: 1000Mi
       script:
         image: uwgac/topmed-master:2.12.0
         securityContext:
