@@ -63,7 +63,7 @@ spec:
         description: Array of per-chromosome GDS files.
         value: |-
           [
-            "/commons-data/hapmap-ceu_chr1.gds/gds_data/chr22.gds"
+            "/commons-data/gds_data/chr21.gds"
           ]
 
   volumes:
