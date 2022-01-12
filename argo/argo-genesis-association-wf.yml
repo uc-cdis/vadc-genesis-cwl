@@ -211,6 +211,7 @@ spec:
           library(Biobase)
 
           dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}", stringsAsFactors=FALSE)
+          dat.csv$sample.id <- as.character(dat.csv$sample.id)
           annot <- AnnotatedDataFrame(dat.csv)
           stopifnot("sample.id" %in% varLabels(annot))
           save(annot, file="/mnt/vol/phenotypes.Rdata")
