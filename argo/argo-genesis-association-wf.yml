@@ -12,58 +12,63 @@ spec:
   arguments:
     parameters:
       - name: pheno_csv_key
-        description: S3 key for phenotype CSV file.
         value: 20k.prod_height_pheno.csv
       - name: n_pcs
-        description: Number of PCs to include as covariates.
         default: 0
         value: 10
       - name: covariates
-        description: |-
-          Names of columns phenotype_file containing covariates. Separate by spaces.
-          e.g., `gender height healthy`
         value: gender age Hare
       - name: out_prefix
-        description: Prefix for files created by the workflow.
         default: genesis_vadc
         value: 20k_vhdcprod_height
       - name: outcome
-        description: Name of column in phenotype_file containing outcome variable.
         value: Height
       - name: outcome_is_binary
-        description: |-
-          TRUE if outcome is a binary (case/control) variable;
-          FALSE if outcome is a continuous variable.
         enum:
           - "TRUE"
           - "FALSE"
         default: "FALSE"
         value: "FALSE"
       - name: pca_file
-        description: RData file with PCA results created by PC-AiR.
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
-        description: RData object with a kinship matrix.
         value: /commons-data/KINGmatDeg3.RData
       - name: genome_build
-        description: Genome build
         enum:
           - "hg38"
           - "hg19"
         default: "hg19"
         value: "hg19"
       - name: n_segments
-        description: Number of segments (overrides segment length).
         value: 0
       - name: segment_length
-        description: Segment length in KB
         default: 10000
         value: 10000
       - name: gds_files
-        description: Array of per-chromosome GDS files.
         value: |-
           [
-            "/commons-data/gds_data/chr21.gds"
+            "/commons-data/gds_data/chr1.gds",
+            "/commons-data/gds_data/chr2.gds",
+            "/commons-data/gds_data/chr3.gds",
+            "/commons-data/gds_data/chr4.gds",
+            "/commons-data/gds_data/chr5.gds",
+            "/commons-data/gds_data/chr6.gds",
+            "/commons-data/gds_data/chr7.gds",
+            "/commons-data/gds_data/chr8.gds",
+            "/commons-data/gds_data/chr9.gds",
+            "/commons-data/gds_data/chr10.gds",
+            "/commons-data/gds_data/chr11.gds",
+            "/commons-data/gds_data/chr12.gds",
+            "/commons-data/gds_data/chr13.gds",
+            "/commons-data/gds_data/chr14.gds",
+            "/commons-data/gds_data/chr15.gds",
+            "/commons-data/gds_data/chr16.gds",
+            "/commons-data/gds_data/chr17.gds",
+            "/commons-data/gds_data/chr18.gds",
+            "/commons-data/gds_data/chr19.gds",
+            "/commons-data/gds_data/chr20.gds",
+            "/commons-data/gds_data/chr21.gds",
+            "/commons-data/gds_data/chr22.gds"
           ]
 
   volumes:
@@ -164,8 +169,7 @@ spec:
                 - name: phenotype_file
                   from: "{{tasks.run-null-model.outputs.artifacts.null_model_phenotype}}"
                 - name: null_model_results
-                  s3:
-                    key: "{{workflow.parameters.out_prefix}}_null_model_datadir/{{workflow.parameters.out_prefix}}_null_model_invnorm.RData"
+                  from: "{{tasks.run-null-model.outputs.artifacts.null_model_directory}}"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
 
           - name: combine-shards
@@ -180,7 +184,7 @@ spec:
               artifacts:
                 - name: file_shards
                   s3:
-                    key: "single_assoc_chunks"
+                    key: "{{workflow.name}}/single_assoc_chunks"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
 
           - name: run-plots
@@ -195,7 +199,7 @@ spec:
               artifacts:
                 - name: combined
                   s3:
-                    key: "single_assoc_combined"
+                    key: "{{workflow.name}}/single_assoc_combined"
 
     - name: generate-pheno
       inputs:
@@ -203,9 +207,12 @@ spec:
           - name: pheno_csv
             mode: 0777
             path: "/mnt/vol/phenotypes.csv"
-
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
           library(Biobase)
@@ -230,7 +237,7 @@ spec:
             archive:
               none: {}
             s3:
-              key: "phenotypes.Rdata"
+              key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
 
     - name: run-null-model
       inputs:
@@ -246,21 +253,31 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.Rdata"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
           export NSLOTS=2
           cd /mnt/vol
+
+
           echo "out_prefix {{inputs.parameters.out_prefix}}" > null_model.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> null_model.config
           echo "outcome {{inputs.parameters.outcome}}" >> null_model.config
-          echo "binary {{inputs.parameters.outcome_is_binary}}" >> null_model.config
+          if [[ "{{inputs.parameters.outcome_is_binary}}" == "TRUE" ]]; then
+                echo "family \"binomial\"" >> null_model.config
+          else
+                echo "family \"gaussian\"" >> null_model.config
+          fi
           echo "n_pcs {{inputs.parameters.n_pcs}}" >> null_model.config
           echo "pca_file {{inputs.parameters.pca_file}}" >> null_model.config
           echo "relatedness_matrix_file {{inputs.parameters.relatedness_matrix_file}}" >> null_model.config
-          echo "covariates \"{{inputs.parameters.covariates}}\"" >> null_model.config
+          echo "covars \"{{inputs.parameters.covariates}}\"" >> null_model.config
           echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> null_model.config
 
           set -xe
@@ -284,11 +301,11 @@ spec:
             mountPath: /mnt/vol
           - name: gateway
             mountPath: /commons-data
+
         resources:
           requests:
             cpu: 2500m
             memory: 2Gi
-
 
       outputs:
         artifacts:
@@ -298,20 +315,20 @@ spec:
             archive:
               none: {}
             s3:
-              key: "{{inputs.parameters.out_prefix}}_datadir"
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_datadir"
           - name: null_model_phenotype
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
             archive:
               none: {}
             s3:
-              key: "{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
           - name: null_model_report_directory
             globalName: null_model_reports_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_reports"
             archive:
               none: {}
             s3:
-              key: "{{inputs.parameters.out_prefix}}_reports"
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_reports"
 
     - name: define-segments
       inputs:
@@ -319,9 +336,13 @@ spec:
           - name: genome_build
           - name: n_segments
           - name: segment_length
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
           cd /mnt/vol
@@ -341,6 +362,7 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+
         resources:
           requests:
             cpu: 256m
@@ -353,15 +375,19 @@ spec:
             archive:
               none: {}
             s3:
-              key: segments.txt
+              key: "{{workflow.name}}/{{pod.name}}/segments.txt"
 
     - name: split-filename
       inputs:
         parameters:
           - name: gds_file
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: python:3.7
+        imagePullPolicy: IfNotPresent
         command: [python3]
         source: |
           import json
@@ -374,6 +400,7 @@ spec:
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
           dat = {"file_prefix": pfx, "file_suffix": sfx}
           json.dump(dat, sys.stdout)
+
         resources:
           requests:
             cpu: 50m
@@ -388,9 +415,13 @@ spec:
         artifacts:
           - name: segment_file
             path: "/mnt/vol/segments.txt"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: python:3.7
+        imagePullPolicy: IfNotPresent
         command: [python3]
         source: |
           import json
@@ -440,13 +471,19 @@ spec:
             path: "/mnt/vol/segments.txt"
           - name: null_model_results
             mode: 0777
-            path: "/mnt/vol/null_model_invnorm.RData"
+            path: "/mnt/vol/null_model_results"
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
         command: [bash]
         source: |
           cd /mnt/vol
@@ -457,7 +494,7 @@ spec:
           echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
           echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
           echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
-          echo "null_model_file null_model_invnorm.RData" >> assoc_single.config
+          echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
           echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
 
@@ -471,14 +508,21 @@ spec:
           --segment {{inputs.parameters.segment}} \
           --num_cores 2
 
+          SEGOUT="{{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData"
           mkdir single_assoc_chunks
-          mv {{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData single_assoc_chunks/
+
+          if [[ -f $SEGOUT ]]; then
+                mv $SEGOUT single_assoc_chunks/
+          else
+                echo "No outputs for segment... skipping..."
+          fi
 
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
           - name: gateway
             mountPath: /commons-data
+
         resources:
           requests:
             cpu: 2000m
@@ -490,7 +534,7 @@ spec:
             archive:
               none: {}
             s3:
-              key: "single_assoc_chunks"
+              key: "{{workflow.name}}/single_assoc_chunks"
 
     - name: combine-shards
       inputs:
@@ -501,9 +545,13 @@ spec:
           - name: file_shards
             mode: 0777
             path: "/mnt/vol/file_shards"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
         command: [bash]
@@ -538,7 +586,7 @@ spec:
             archive:
               none: {}
             s3:
-              key: "single_assoc_combined"
+              key: "{{workflow.name}}/single_assoc_combined"
 
     - name: run-plots
       inputs:
@@ -549,9 +597,13 @@ spec:
           - name: combined
             mode: 0777
             path: "/mnt/vol/combined"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
 
       script:
         image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
         command: [bash]
@@ -585,11 +637,11 @@ spec:
             archive:
               none: {}
             s3:
-              key: "gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
+              key: "{{workflow.name}}/gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
           - name: qq_plot
             globalName: gwas_qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
               none: {}
             s3:
-              key: "gwas_plots/{{inputs.parameters.out_prefix}}_qq.png"
+              key: "{{workflow.name}}/gwas_plots/{{inputs.parameters.out_prefix}}_qq.png"
