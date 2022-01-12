@@ -69,7 +69,7 @@ spec:
   volumes:
     - name: gateway
       persistentVolumeClaim:
-        claimName: mariner-nfs-pvc
+        claimName: va-input-nfs-pvc
     - name: workdir
       emptyDir: {}
 
