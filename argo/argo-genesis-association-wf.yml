@@ -203,10 +203,7 @@ spec:
           - name: pheno_csv
             mode: 0777
             path: "/mnt/vol/phenotypes.csv"
-      resources:
-        requests:
-          cpu: 500m
-          memory: 512Mi
+
       script:
         image: uwgac/topmed-master:2.12.0
         command: [Rscript]
@@ -221,6 +218,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
       outputs:
         artifacts:
           - name: phenotype_file
@@ -244,10 +245,6 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.Rdata"
-      resources:
-        requests:
-          cpu: 2500m
-          memory: 2Gi
 
       script:
         image: uwgac/topmed-master:2.12.0
@@ -286,6 +283,11 @@ spec:
             mountPath: /mnt/vol
           - name: gateway
             mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 2500m
+            memory: 2Gi
+
 
       outputs:
         artifacts:
@@ -316,10 +318,6 @@ spec:
           - name: genome_build
           - name: n_segments
           - name: segment_length
-      resources:
-        requests:
-          cpu: 256m
-          memory: 512Mi
 
       script:
         image: uwgac/topmed-master:2.12.0
@@ -342,6 +340,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 256m
+            memory: 512Mi
 
       outputs:
         artifacts:
@@ -356,10 +358,7 @@ spec:
       inputs:
         parameters:
           - name: gds_file
-      resources:
-        requests:
-          cpu: 50m
-          memory: 50Mi
+
       script:
         image: python:3.7
         command: [python3]
@@ -374,6 +373,10 @@ spec:
           sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
           dat = {"file_prefix": pfx, "file_suffix": sfx}
           json.dump(dat, sys.stdout)
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
 
     - name: filter-segments
       inputs:
@@ -384,10 +387,7 @@ spec:
         artifacts:
           - name: segment_file
             path: "/mnt/vol/segments.txt"
-      resources:
-        requests:
-          cpu: 50m
-          memory: 50Mi
+
       script:
         image: python:3.7
         command: [python3]
@@ -419,6 +419,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
 
     - name: run-single-assoc
       inputs:
@@ -439,10 +443,7 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
-      resources:
-        requests:
-          cpu: 2000m
-          memory: 6000Mi
+
       script:
         image: uwgac/topmed-master:2.12.0
         command: [bash]
@@ -477,6 +478,10 @@ spec:
             mountPath: /mnt/vol
           - name: gateway
             mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 6000Mi
       outputs:
         artifacts:
           - name: single_assoc_segment_output
@@ -495,10 +500,7 @@ spec:
           - name: file_shards
             mode: 0777
             path: "/mnt/vol/file_shards"
-      resources:
-        requests:
-          cpu: 1000m
-          memory: 2000Mi
+
       script:
         image: uwgac/topmed-master:2.12.0
         securityContext:
@@ -523,6 +525,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2000Mi
       outputs:
         artifacts:
           - name: single_assoc_combined
@@ -542,10 +548,7 @@ spec:
           - name: combined
             mode: 0777
             path: "/mnt/vol/combined"
-      resources:
-        requests:
-          cpu: 256m
-          memory: 1000Mi
+
       script:
         image: uwgac/topmed-master:2.12.0
         securityContext:
@@ -569,6 +572,10 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 256m
+            memory: 1000Mi
       outputs:
         artifacts:
           - name: manhattan_plot
