@@ -12,7 +12,7 @@ spec:
   arguments:
     parameters:
       - name: pheno_csv_key
-        value: 20k.prod_height_pheno.csv
+        value: 650k.prod_height_pheno.csv
       - name: n_pcs
         default: 0
         value: 10
@@ -20,7 +20,7 @@ spec:
         value: gender age Hare
       - name: out_prefix
         default: genesis_vadc
-        value: 20k_vhdcprod_height
+        value: 650k_vhdcprod_height
       - name: outcome
         value: Height
       - name: outcome_is_binary
@@ -44,31 +44,34 @@ spec:
       - name: segment_length
         default: 10000
         value: 10000
+      - name: variant_block_size
+        default: 1024
+        value: 100
       - name: gds_files
         value: |-
           [
-            "/commons-data/gds_data/chr1.gds",
-            "/commons-data/gds_data/chr2.gds",
-            "/commons-data/gds_data/chr3.gds",
-            "/commons-data/gds_data/chr4.gds",
-            "/commons-data/gds_data/chr5.gds",
-            "/commons-data/gds_data/chr6.gds",
-            "/commons-data/gds_data/chr7.gds",
-            "/commons-data/gds_data/chr8.gds",
-            "/commons-data/gds_data/chr9.gds",
-            "/commons-data/gds_data/chr10.gds",
-            "/commons-data/gds_data/chr11.gds",
-            "/commons-data/gds_data/chr12.gds",
-            "/commons-data/gds_data/chr13.gds",
-            "/commons-data/gds_data/chr14.gds",
-            "/commons-data/gds_data/chr15.gds",
-            "/commons-data/gds_data/chr16.gds",
-            "/commons-data/gds_data/chr17.gds",
-            "/commons-data/gds_data/chr18.gds",
-            "/commons-data/gds_data/chr19.gds",
-            "/commons-data/gds_data/chr20.gds",
-            "/commons-data/gds_data/chr21.gds",
-            "/commons-data/gds_data/chr22.gds"
+            "/commons-data/gds/chr1.merged.vcf.gz.gds",
+            "/commons-data/gds/chr2.merged.vcf.gz.gds",
+            "/commons-data/gds/chr3.merged.vcf.gz.gds",
+            "/commons-data/gds/chr4.merged.vcf.gz.gds",
+            "/commons-data/gds/chr5.merged.vcf.gz.gds",
+            "/commons-data/gds/chr6.merged.vcf.gz.gds",
+            "/commons-data/gds/chr7.merged.vcf.gz.gds",
+            "/commons-data/gds/chr8.merged.vcf.gz.gds",
+            "/commons-data/gds/chr9.merged.vcf.gz.gds",
+            "/commons-data/gds/chr10.merged.vcf.gz.gds",
+            "/commons-data/gds/chr11.merged.vcf.gz.gds",
+            "/commons-data/gds/chr12.merged.vcf.gz.gds",
+            "/commons-data/gds/chr13.merged.vcf.gz.gds",
+            "/commons-data/gds/chr14.merged.vcf.gz.gds",
+            "/commons-data/gds/chr15.merged.vcf.gz.gds",
+            "/commons-data/gds/chr16.merged.vcf.gz.gds",
+            "/commons-data/gds/chr17.merged.vcf.gz.gds",
+            "/commons-data/gds/chr18.merged.vcf.gz.gds",
+            "/commons-data/gds/chr19.merged.vcf.gz.gds",
+            "/commons-data/gds/chr20.merged.vcf.gz.gds",
+            "/commons-data/gds/chr21.merged.vcf.gz.gds",
+            "/commons-data/gds/chr22.merged.vcf.gz.gds"
           ]
 
   volumes:
@@ -161,6 +164,8 @@ spec:
                   value: "{{workflow.parameters.genome_build}}"
                 - name: out_prefix
                   value: "{{workflow.parameters.out_prefix}}"
+                - name: variant_block_size
+                  value: "{{workflow.parameters.variant_block_size}}"
                 - name: segment
                   value: "{{item}}"
               artifacts:
@@ -465,6 +470,7 @@ spec:
           - name: file_prefix
           - name: file_suffix
           - name: segment
+          - name: variant_block_size
         artifacts:
           - name: segment_file
             mode: 0777
@@ -476,7 +482,7 @@ spec:
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
       retryStrategy:
-        limit: "3"
+        limit: "5"
         retryPolicy: "Always"
 
       script:
@@ -497,6 +503,7 @@ spec:
           echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
           echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
+          echo "variant_block_size {{inputs.parameters.variant_block_size}}" >> assoc_single.config
 
           cat assoc_single.config
           ls -al
@@ -526,7 +533,7 @@ spec:
         resources:
           requests:
             cpu: 2000m
-            memory: 6000Mi
+            memory: 12000Mi
       outputs:
         artifacts:
           - name: single_assoc_segment_output
@@ -546,7 +553,7 @@ spec:
             mode: 0777
             path: "/mnt/vol/file_shards"
       retryStrategy:
-        limit: "3"
+        limit: "4"
         retryPolicy: "Always"
 
       script:
