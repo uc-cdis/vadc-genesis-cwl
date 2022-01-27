@@ -12,7 +12,7 @@ spec:
   arguments:
     parameters:
       - name: pheno_csv_key
-        value: 650k.prod_height_pheno.csv
+        value: 250k.prod_height_pheno.csv
       - name: n_pcs
         default: 0
         value: 10
@@ -20,7 +20,7 @@ spec:
         value: gender age Hare
       - name: out_prefix
         default: genesis_vadc
-        value: 650k_vhdcprod_height
+        value: 250k_vhdcprod_height
       - name: outcome
         value: Height
       - name: outcome_is_binary
@@ -47,6 +47,12 @@ spec:
       - name: variant_block_size
         default: 1024
         value: 100
+      - name: mac_threshold
+        value: 0
+      - name: maf_threshold
+        value: 0.01
+      - name: imputation_score_cutoff
+        value: 0.3
       - name: gds_files
         value: |-
           [
@@ -85,6 +91,16 @@ spec:
     - name: null-model
       dag:
         tasks:
+          - name: run-impute-score-filter
+            template: impute-score-filter
+            arguments:
+              parameters:
+                - name: impute_cutoff
+                  value: "{{workflow.parameters.imputation_score_cutoff}}"
+                - name: gds_file
+                  value: "{{item}}"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+
           - name: generate-pheno
             template: generate-pheno
             arguments:
@@ -151,7 +167,7 @@ spec:
 
           - name: run-single-assoc
             template: run-single-assoc
-            dependencies: [run-null-model, filter-segments, split-filename]
+            dependencies: [run-null-model, filter-segments, split-filename, run-impute-score-filter]
             arguments:
               parameters:
                 - name: file_prefix
@@ -166,6 +182,10 @@ spec:
                   value: "{{workflow.parameters.out_prefix}}"
                 - name: variant_block_size
                   value: "{{workflow.parameters.variant_block_size}}"
+                - name: mac_threshold
+                  value: "{{workflow.parameters.mac_threshold}}"
+                - name: maf_threshold
+                  value: "{{workflow.parameters.maf_threshold}}"
                 - name: segment
                   value: "{{item}}"
               artifacts:
@@ -175,6 +195,9 @@ spec:
                   from: "{{tasks.run-null-model.outputs.artifacts.null_model_phenotype}}"
                 - name: null_model_results
                   from: "{{tasks.run-null-model.outputs.artifacts.null_model_directory}}"
+                - name: variant_list_dir
+                  s3:
+                    key: "{{workflow.name}}/variant_lists"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.segments'))}}"
 
           - name: combine-shards
@@ -205,6 +228,61 @@ spec:
                 - name: combined
                   s3:
                     key: "{{workflow.name}}/single_assoc_combined"
+
+    - name: impute-score-filter
+      inputs:
+        parameters:
+          - name: impute_cutoff
+          - name: gds_file
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(SeqVarTools)
+
+          gdsFile <- "{{inputs.parameters.gds_file}}"
+          imputation.cutoff <- {{inputs.parameters.impute_cutoff}}
+          chrom <- gsub("(.*)(chr\\d+)(.*)", "\\2", basename(gdsFile))
+          cat("gds:", gdsFile, "chromosome:", chrom, "\n")
+
+          dir.create("/mnt/vol/variant_lists")
+          outFile <- file.path("/mnt/vol/variant_lists", paste0(chrom, ".selected_variants.RData"))
+
+          gds <- seqOpen(gdsFile)
+
+          all.variant.ids <- seqGetData(gds, "variant.id")
+          imputation.fit <- seqGetData(gds, "annotation/info/R2")
+          sel <- imputation.fit >= imputation.cutoff | is.na(imputation.fit)
+          variant.ids <- all.variant.ids[sel]
+          save(variant.ids, file=outFile)
+          seqClose(gds)
+          
+          cat("Total variants:", length(all.variant.ids),
+              "\nDropped variants:", length(all.variant.ids) - length(variant.ids),
+              "\nRemaining variants (%):", length(variant.ids),
+                  paste0("(", round(100*(length(variant.ids)/length(all.variant.ids)), 2), "%)"), "\n")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+      outputs:
+        artifacts:
+          - name: variant_list_dir
+            path: "/mnt/vol/variant_lists"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/variant_lists"
 
     - name: generate-pheno
       inputs:
@@ -471,6 +549,8 @@ spec:
           - name: file_suffix
           - name: segment
           - name: variant_block_size
+          - name: mac_threshold
+          - name: maf_threshold
         artifacts:
           - name: segment_file
             mode: 0777
@@ -481,6 +561,9 @@ spec:
           - name: phenotype_file
             mode: 0777
             path: "/mnt/vol/phenotypes.RData"
+          - name: variant_list_dir
+            mode: 0777
+            path: "/mnt/vol/variant_lists"
       retryStrategy:
         limit: "5"
         retryPolicy: "Always"
@@ -497,6 +580,10 @@ spec:
               ln -s $fil .
           done
 
+          set -xe
+          CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
+          echo $CHROM
+
           echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
           echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
           echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
@@ -504,13 +591,18 @@ spec:
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
           echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
           echo "variant_block_size {{inputs.parameters.variant_block_size}}" >> assoc_single.config
+          echo "variant_include_file {{inputs.artifacts.variant_list_dir.path}}/chr${CHROM}.selected_variants.RData" >> assoc_single.config
+
+          if [[ "{{inputs.parameters.mac_threshold}}" == "0" ]]; then
+              echo "mac_threshold NA" >> assoc_single.config
+              echo "maf_threshold {{inputs.parameters.maf_threshold}}" >> assoc_single.config
+          else
+              echo "mac_threshold {{inputs.parameters.mac_threshold}}" >> assoc_single.config
+          fi
 
           cat assoc_single.config
           ls -al
 
-          set -xe
-          CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
-          echo $CHROM
           Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM \
           --segment {{inputs.parameters.segment}} \
           --num_cores 2
@@ -618,6 +710,7 @@ spec:
           cd {{inputs.artifacts.combined.path}}
 
           echo "assoc_type \"single\"" > plots.config
+          echo "thin \"TRUE\"" >> plots.config
           echo "assoc_file \"{{inputs.parameters.out_prefix}}_chr .RData\"" >> plots.config
           echo "chromosomes \"{{inputs.parameters.chromosomes}}\"" >> plots.config
           echo "out_file_manh \"{{inputs.parameters.out_prefix}}_manhattan.png\"" >> plots.config
