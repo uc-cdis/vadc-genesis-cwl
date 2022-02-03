@@ -1,0 +1,316 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: global-marker-anno-
+  namespace: argo
+spec:
+  entrypoint:
+  podGC:
+    strategy: OnWorkflowSuccess
+  arguments:
+    parameters:
+      - name: vep_cache_dir
+        value: /commons-data/vep_data
+      - name: output_prefix
+        value: vadc_mvp_marker_annotation
+      - name: gds_files
+        value: |-
+          [
+            {"chrom": "chr1", "path": "/commons-data/gds/chr1.merged.vcf.gz.gds"},
+            {"chrom": "chr2", "path": "/commons-data/gds/chr2.merged.vcf.gz.gds"},
+            {"chrom": "chr3", "path": "/commons-data/gds/chr3.merged.vcf.gz.gds"},
+            {"chrom": "chr4", "path": "/commons-data/gds/chr4.merged.vcf.gz.gds"},
+            {"chrom": "chr5", "path": "/commons-data/gds/chr5.merged.vcf.gz.gds"},
+            {"chrom": "chr6", "path": "/commons-data/gds/chr6.merged.vcf.gz.gds"},
+            {"chrom": "chr7", "path": "/commons-data/gds/chr7.merged.vcf.gz.gds"},
+            {"chrom": "chr8", "path": "/commons-data/gds/chr8.merged.vcf.gz.gds"},
+            {"chrom": "chr9", "path": "/commons-data/gds/chr9.merged.vcf.gz.gds"},
+            {"chrom": "chr10", "path": "/commons-data/gds/chr10.merged.vcf.gz.gds"},
+            {"chrom": "chr11", "path": "/commons-data/gds/chr11.merged.vcf.gz.gds"},
+            {"chrom": "chr12", "path": "/commons-data/gds/chr12.merged.vcf.gz.gds"},
+            {"chrom": "chr13", "path": "/commons-data/gds/chr13.merged.vcf.gz.gds"},
+            {"chrom": "chr14", "path": "/commons-data/gds/chr14.merged.vcf.gz.gds"},
+            {"chrom": "chr15", "path": "/commons-data/gds/chr15.merged.vcf.gz.gds"},
+            {"chrom": "chr16", "path": "/commons-data/gds/chr16.merged.vcf.gz.gds"},
+            {"chrom": "chr17", "path": "/commons-data/gds/chr17.merged.vcf.gz.gds"},
+            {"chrom": "chr18", "path": "/commons-data/gds/chr18.merged.vcf.gz.gds"},
+            {"chrom": "chr19", "path": "/commons-data/gds/chr19.merged.vcf.gz.gds"},
+            {"chrom": "chr20", "path": "/commons-data/gds/chr20.merged.vcf.gz.gds"},
+            {"chrom": "chr21", "path": "/commons-data/gds/chr21.merged.vcf.gz.gds"},
+            {"chrom": "chr22", "path": "/commons-data/gds/chr22.merged.vcf.gz.gds"},
+            {"chrom": "chrX", "path": "/commons-data/gds/chrX.merged.vcf.gz.gds"}
+          ]
+  volumes:
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: va-input-nfs-pvc
+    - name: workdir
+      emptyDir: {}
+  templates:
+    - name: marker-anno-wf
+      dag:
+        tasks:
+          - name: run-extract-marker-meta
+            template: extract-marker-meta
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item.chrom}}"
+                - name: gds_file
+                  value: "{{item.path}}"
+                - name: output_prefix
+                  value: "{{workflow.parameters.output_prefix}}"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+
+          - name: run-gds-to-vcf
+            template: gds-to-vcf
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item.chrom}}"
+                - name: gds_file
+                  value: "{{item.path}}"
+                - name: output_prefix
+                  value: "{{workflow.parameters.output_prefix}}"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+
+          - name: run-vep-annotate
+            template: vep-annotate
+            dependencies: [run-gds-to-vcf]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item.chrom}}"
+                - name: vep_cache
+                  value: "{{workflow.parameters.vep_cache_dir}}"
+                - name: output_prefix
+                  value: "{{workflow.parameters.output_prefix}}"
+              artifacts:
+                - name: sites_only_vcf
+                  s3:
+                    key: "{{workflow.name}}/site_only_vcfs/{{workflow.parameters.output_prefix}}.{{item.chrom}}.siteOnly.vcf.gz"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+
+          - name: run-extract-rsids
+            template: extract-rsids
+            dependencies: [run-vep-annotate]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item.chrom}}"
+                - name: output_prefix
+                  value: "{{workflow.parameters.output_prefix}}"
+              artifacts:
+                - name: annotated_vcf
+                  s3:
+                    key: "{{workflow.name}}/annotated_vcfs/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+
+    - name: extract-marker-meta
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: gds_file
+          - name: output_prefix
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(SeqArray)
+          library(GENESIS)
+          library(dplyr)
+          
+          gds <- seqOpen("{{inputs.parameters.gds_file}}")
+
+          var.base <- data.frame(
+            variant.id=seqGetData(gds, "variant.id"),
+            variant.name=seqGetData(gds, "annotation/id"), stringsAsFactors=FALSE)
+          eff.allele <- effectAllele(gds)[,c("variant.id", "effect.allele")]
+          var.meta <- var.base %>%
+            left_join(SeqVarTools::variantInfo(gds, alleles=TRUE, expand=FALSE), by=c("variant.id"="variant.id")) %>%
+            left_join(eff.allele, by=c("variant.id"="variant.id"))
+          
+          write.csv(var.meta,
+                    file=gzfile("/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.var_meta.csv.gz"),
+                    row.names=FALSE)
+          seqClose(gds)
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1000Mi
+      outputs:
+        artifacts:
+          - name: marker_metadata_csv
+            globalName: marker_metadata_csv
+            path: "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.var_meta.csv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/marker_metadata/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.var_meta.csv.gz"
+
+    - name: gds-to-vcf
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: gds_file
+          - name: output_prefix
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(SeqArray)
+
+          gds <- seqOpen("{{inputs.parameters.gds_file}}")
+          seqSetFilter(gds, sample.id=character(0))
+          seqGDS2VCF(gds, "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.siteOnly.vcf.gz",
+                     info.var=character(),
+                     fmt.var=character(),
+                     chr_prefix="chr")
+          seqClose(gds)
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 2000Mi
+      outputs:
+        artifacts:
+          - name: site_only_vcf
+            path: "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.siteOnly.vcf.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/site_only_vcfs/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.siteOnly.vcf.gz"
+
+    - name: vep-annotate
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: vep_cache
+          - name: output_prefix
+        artifacts:
+          - name: sites_only_vcf
+            mode: 0777
+            path: "/mnt/vol/{{inputs.parameters.chromosome}}.siteOnly.vcf.gz"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      container:
+        image: ensemblorg/ensembl-vep:release_105.0
+        imagePullPolicy: IfNotPresent
+        command: [vep]
+        args: ["--cache --dir {{inputs.parameters.vep_cache}} --offline \
+          --fasta {{inputs.parameters.vep_cache}}/homo_sapiens/105_GRCh37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz \
+          --everything --species homo_sapiens \
+          -i {{inputs.artifacts.sites_only_vcf.path}} --format vcf \
+          --output_file /mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz \
+          --no_stats --fork 6 \
+          --vcf --allele_number --compress_output gzip --gene_phenotype \
+          --hgvs --hgvsg --check_existing --pick_allele_gene --xref_refseq"]
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 6000m
+            memory: 1000Mi
+      outputs:
+        artifacts:
+          - name: annotated_vcf
+            globalName: annotated_vcf
+            path: "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/annotated_vcfs/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz"
+
+    - name: extract-rsids
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: output_prefix
+        artifacts:
+          - name: annotated_vcf
+            mode: 0777
+            path: "/mnt/vol/{{inputs.parameters.chromosome}}.vep.vcf.gz"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: python:3.7
+        imagePullPolicy: IfNotPresent
+        command: [python3]
+        source: |
+          import gzip
+
+          ivcf = "{{inputs.artifacts.annotated_vcf.path}}"
+          
+          def extract_ann_cols(vcf):
+              cols = None
+              for line in vcf:
+                  if line.startswith('##INFO=<ID=CSQ'):
+                      cols = line.rstrip("\r\n").split("Format: ")[1].rstrip('">').split('|')
+                      break
+              return cols
+          
+          def parse_info(col, ann_cols):
+              annos = []
+              for item in col.split(';'):
+                  if item.startswith('CSQ='):
+                      for ann_str in item.split('=', 1)[1].split(","):
+                          ann = dict(zip(ann_cols, ann_str.split("|")))
+                          rsid = list(filter(lambda x: x.startswith('rs'), ann.get('Existing_variation',"").split('&')))
+                          if rsid:
+                              annos.extend(rsid)
+              rsids = ",".join(sorted(list(set(annos))))
+              return rsids
+
+          if __name__ == '__main__':
+              otsv = "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.rsids.tsv.gz"
+              with gzip.open(ivcf, 'rt') as fh, gzip.open(otsv, 'wt') as o:
+                  o.write("variant.name\trsids\n")
+                  ann_cols = extract_ann_cols(fh)
+                  for line in fh:
+                      if line.startswith('#'): continue
+                      cols = line.rstrip("\r\n").split("\t")
+                      vid = cols[2]
+                      rsids = parse_info(cols[7], ann_cols)
+                      if rsids:
+                          o.write(vid + "\t" + rsids + "\n")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 100Mi
+      outputs:
+        artifacts:
+          - name: rsid_tsv
+            globalName: rsid_tsv
+            path: "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.rsids.tsv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/marker_metadata/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.rsids.tsv.gz"
