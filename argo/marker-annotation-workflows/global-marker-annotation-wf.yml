@@ -4,7 +4,7 @@ metadata:
   generateName: global-marker-anno-
   namespace: argo
 spec:
-  entrypoint:
+  entrypoint: marker-anno-wf
   podGC:
     strategy: OnWorkflowSuccess
   arguments:
