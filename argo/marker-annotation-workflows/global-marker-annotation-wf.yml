@@ -10,7 +10,7 @@ spec:
   arguments:
     parameters:
       - name: vep_cache_dir
-        value: /commons-data/kmhernan/vep_data
+        value: /commons-data/kmhernan/vep-stuff/vep_data
       - name: output_prefix
         value: vadc_mvp_marker_annotation
       - name: gds_files
