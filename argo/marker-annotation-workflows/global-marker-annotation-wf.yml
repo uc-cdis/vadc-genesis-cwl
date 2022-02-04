@@ -213,18 +213,19 @@ spec:
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
-      container:
+      script:
         image: ensemblorg/ensembl-vep:release_105.0
         imagePullPolicy: IfNotPresent
-        command: [vep]
-        args: ["--cache --dir {{inputs.parameters.vep_cache}} --offline \
+        command: [bash]
+        source: |
+          vep --cache --dir {{inputs.parameters.vep_cache}} --offline \
           --fasta {{inputs.parameters.vep_cache}}/homo_sapiens/105_GRCh37/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz \
           --everything --species homo_sapiens \
           -i {{inputs.artifacts.sites_only_vcf.path}} --format vcf \
           --output_file /mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz \
           --no_stats --fork 6 \
           --vcf --allele_number --compress_output gzip --gene_phenotype \
-          --hgvs --hgvsg --check_existing --pick_allele_gene --xref_refseq"]
+          --hgvs --hgvsg --check_existing --pick_allele_gene --xref_refseq
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
