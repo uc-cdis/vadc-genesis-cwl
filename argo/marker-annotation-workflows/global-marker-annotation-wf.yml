@@ -103,7 +103,7 @@ spec:
               artifacts:
                 - name: annotated_vcf
                   s3:
-                    key: "{{workflow.name}}/annotated_vcfs/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.vcf.gz"
+                    key: "{{workflow.name}}/annotated_vcfs/{{workflow.parameters.output_prefix}}.{{item.chrom}}.vep.vcf.gz"
             withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
 
     - name: extract-marker-meta
