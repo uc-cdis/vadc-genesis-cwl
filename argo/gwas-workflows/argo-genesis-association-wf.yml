@@ -246,7 +246,7 @@ spec:
 
           gdsFile <- "{{inputs.parameters.gds_file}}"
           imputation.cutoff <- {{inputs.parameters.impute_cutoff}}
-          chrom <- gsub("(.*)(chr\\d+)(.*)", "\\2", basename(gdsFile))
+          chrom <- gsub("(.*)(chr[0-9X]+)(.*)", "\\2", basename(gdsFile))
           cat("gds:", gdsFile, "chromosome:", chrom, "\n")
 
           dir.create("/mnt/vol/variant_lists")
