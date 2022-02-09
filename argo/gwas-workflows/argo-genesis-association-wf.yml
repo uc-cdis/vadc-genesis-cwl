@@ -86,7 +86,6 @@ spec:
         claimName: va-input-nfs-pvc
     - name: workdir
       emptyDir: {}
-
   templates:
     - name: null-model
       dag:
@@ -182,6 +181,8 @@ spec:
                   value: "{{workflow.parameters.out_prefix}}"
                 - name: variant_block_size
                   value: "{{workflow.parameters.variant_block_size}}"
+                - name: outcome_is_binary
+                  value: "{{workflow.parameters.outcome_is_binary}}"
                 - name: mac_threshold
                   value: "{{workflow.parameters.mac_threshold}}"
                 - name: maf_threshold
@@ -551,6 +552,7 @@ spec:
           - name: variant_block_size
           - name: mac_threshold
           - name: maf_threshold
+          - name: outcome_is_binary
         artifacts:
           - name: segment_file
             mode: 0777
@@ -587,11 +589,16 @@ spec:
           echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
           echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
           echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
-          echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
           echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
           echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
           echo "variant_block_size {{inputs.parameters.variant_block_size}}" >> assoc_single.config
           echo "variant_include_file {{inputs.artifacts.variant_list_dir.path}}/chr${CHROM}.selected_variants.RData" >> assoc_single.config
+          if [[ "{{inputs.parameters.outcome_is_binary}}" == "TRUE" ]]; then
+                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model.RData" >> assoc_single.config
+                echo "test_type \"score.spa\"" >> null_model.config
+          else
+                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
+          fi
 
           if [[ "{{inputs.parameters.mac_threshold}}" == "0" ]]; then
               echo "mac_threshold NA" >> assoc_single.config
