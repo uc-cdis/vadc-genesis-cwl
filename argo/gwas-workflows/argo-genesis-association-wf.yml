@@ -85,7 +85,8 @@ spec:
       persistentVolumeClaim:
         claimName: va-input-nfs-pvc
     - name: workdir
-      emptyDir: {}
+      emptyDir:
+        sizeLimit: "10Gi"
   templates:
     - name: null-model
       dag:
@@ -229,6 +230,21 @@ spec:
                 - name: combined
                   s3:
                     key: "{{workflow.name}}/single_assoc_combined"
+
+          - name: annotate-statistics
+            template: run-annotate
+            dependencies: [combine-shards]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item}}"
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: raw_stats
+                  s3:
+                    key: "{{workflow.name}}/single_assoc_combined/{{workflow.parameters.out_prefix}}_chr{{item}}.RData"
+            withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
 
     - name: impute-score-filter
       inputs:
@@ -752,3 +768,69 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/gwas_plots/{{inputs.parameters.out_prefix}}_qq.png"
+
+    - name: run-annotate
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: out_prefix
+        artifacts:
+          - name: raw_stats
+            mode: 0777
+            path: "/mnt/vol/raw_stats.RData"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+
+      script:
+        image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: [Rscript]
+        source: |
+          library(dplyr)
+
+          # Load summary stats
+          load("{{inputs.artifacts.raw_stats.path}}")
+
+          # Load RSID meta
+          anno.df <- read.delim("/commons-data/kmhernan/marker_metadata/vadc_mvp_marker_annotation.chr{{inputs.parameters.chromosome}}.rsids.tsv.gz",
+                                header=TRUE,
+                                stringsAsFactors=FALSE,
+                                sep="\t")
+
+          # Load var meta
+          varmeta.df <- read.csv("/commons-data/kmhernan/marker_metadata/vadc_mvp_marker_annotation.chr{{inputs.parameters.chromosome}}.var_meta.csv.gz",
+                                 stringsAsFactors=FALSE) %>%
+            mutate(chr=as.character(chr))
+
+          # Make annotated df
+          annotated.summary.df <- varmeta.df %>%
+            left_join(anno.df, by=c("variant.name"="variant.name")) %>%
+            inner_join(assoc, by=c("variant.id"="variant.id", "chr"="chr", "pos"="pos")) %>%
+            mutate(chr=paste0("chr", chr))
+
+          # Write new CSV
+          write.csv(annotated.summary.df,
+            file=gzfile("/mnt/vol/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"),
+            row.names=FALSE,
+            na="")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 256m
+            memory: 1000Mi
+      outputs:
+        artifacts:
+          - name: annotated_stats_csv
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/annotated_csvs/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"
