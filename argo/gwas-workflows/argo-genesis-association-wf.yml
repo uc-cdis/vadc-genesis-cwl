@@ -9,6 +9,13 @@ spec:
   entrypoint: null-model
   podGC:
     strategy: OnWorkflowSuccess
+  nodeSelector:
+    role: "workflow"
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "workflow"
+      effect: "NoSchedule"
   arguments:
     parameters:
       - name: pheno_csv_key
