@@ -10,11 +10,11 @@ spec:
   podGC:
     strategy: OnWorkflowSuccess
   nodeSelector:
-    role: "workflow1"
+    role: "workflow"
   tolerations:
     - key: "role"
       operator: "Equal"
-      value: "workflow1"
+      value: "workflow"
       effect: "NoSchedule"
   arguments:
     parameters:
