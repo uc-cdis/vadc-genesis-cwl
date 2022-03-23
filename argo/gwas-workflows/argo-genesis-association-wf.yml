@@ -18,7 +18,7 @@ spec:
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user@university.edu"
+      gen3username: "user-user-40university-2eedu"
   arguments:
     parameters:
       - name: pheno_csv_key
