@@ -1,0 +1,165 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: indexd-bucket-test-
+  namespace: argo
+  annotations:
+    workflows.argoproj.io/version: ">= 3.1.0"
+spec:
+  entrypoint: test-indexd-and-buckets
+  podGC:
+    strategy: OnWorkflowSuccess
+  volumes:
+    - name: workdir
+      emptyDir: {}
+  arguments:
+    parameters:
+      - name: downloadable_bucket
+        value: second-argo-bucket
+      - name: arborist_resource
+        value: /programs/DEV/projects/test
+  templates:
+  - name: test-indexd-and-buckets
+    steps:
+    - - name: generate-artifact
+        template: whalesay
+        arguments:
+          parameters:
+            - name: downloadable_bucket
+              value: "{{workflow.parameters.downloadable_bucket}}"
+    - - name: generate-indexd-meta
+        template: gen-indexd-meta
+        arguments:
+          parameters:
+            - name: downloadable_bucket
+              value: "{{workflow.parameters.downloadable_bucket}}"
+            - name: arborist_resource
+              value: "{{workflow.parameters.arborist_resource}}"
+          artifacts:
+            - name: infile
+              from: "{{steps.generate-artifact.outputs.artifacts.message}}"
+    - - name: post-indexd-record
+        template: curl-indexd
+        arguments:
+          artifacts:
+            - name: request_data
+              from: "{{steps.generate-indexd-meta.outputs.artifacts.indexd_record}}"
+
+  - name: whalesay
+    inputs:
+      parameters:
+        - name: downloadable_bucket
+    container:
+      image: docker/whalesay:latest
+      command: [sh, -c]
+      args: ["cowsay {{workflow.name}} | tee /tmp/hello_world.txt"]
+    archiveLocation:
+      archiveLogs: true
+    outputs:
+      artifacts:
+      - name: message
+        path: /tmp/hello_world.txt
+        archive:
+          none: {}
+        s3:
+          endpoint: s3.amazonaws.com
+          bucket: "{{inputs.parameters.downloadable_bucket}}"
+          key: "{{workflow.name}}/hello_world.txt"
+          accessKeySecret:
+            name: download-bucket-secret
+            key: accessKey
+          secretKeySecret:
+            name: download-bucket-secret
+            key: accessSecret
+
+  - name: gen-indexd-meta
+    inputs:
+      parameters:
+        - name: downloadable_bucket
+        - name: arborist_resource
+      artifacts:
+        - name: infile
+          path: /mnt/vol/hello_world.txt
+    script:
+      image: python:3.7
+      imagePullPolicy: IfNotPresent
+      command: [python3]
+      source: |
+        import json
+        import hashlib
+        import os
+
+        def get_md5_sum(fil):
+            md5 = hashlib.md5()
+            with open(fil, 'rb') as fh:
+                while True:
+                    r = fh.read(8192)
+                    if not r:
+                        break
+                    md5.update(r)
+            return {"md5": str(md5.hexdigest())}
+
+        if __name__ == '__main__':
+            hash_meta = get_md5_sum("{{inputs.artifacts.infile.path}}")
+            fsize = int(os.stat("{{inputs.artifacts.infile.path}}").st_size)
+            data = {
+              "authz": ["{{inputs.parameters.arborist_resource}}"],
+              "file_name": "hello_world.txt",
+              "hashes": hash_meta,
+              "size": fsize,
+              "urls": ["s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/hello_world.txt"],
+              "urls_metadata": {
+                      "s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/hello_world.txt": {}
+              },
+              "form": "object"
+            }
+            with open("/mnt/vol/record.json", 'wt') as o:
+                json.dump(data, o)
+      volumeMounts:
+        - name: workdir
+          mountPath: /mnt/vol
+
+    outputs:
+      artifacts:
+        - name: indexd_record
+          path: "/mnt/vol/record.json"
+          archive:
+            none: {}
+          s3:
+            key: "{{workflow.name}}/record.json"
+
+  - name: curl-indexd
+    inputs:
+      artifacts:
+        - name: request_data
+          path: /mnt/vol/request.json
+    script:
+      image: alpine/curl:3.14
+      imagePullPolicy: IfNotPresent
+      command: [sh]
+      source: |
+        AUTH=$(echo -ne "$INDEXDUSER:$INDEXDPASS" | base64 -w 0)
+        curl \
+        --header "Content-Type: application/json" \
+        --header "Authorization: Basic $AUTH" \
+        --request POST --data "@/mnt/vol/request.json" https://qa-mickey.planx-pla.net/index/index > /mnt/vol/did.json
+      env:
+        - name: INDEXDUSER
+          valueFrom:
+            secretKeyRef:
+              name: indexd-secret
+              key: user
+        - name: INDEXDPASS
+          valueFrom:
+            secretKeyRef:
+              name: indexd-secret
+              key: token
+      volumeMounts:
+        - name: workdir
+          mountPath: /mnt/vol
+    outputs:
+      parameters:
+        - name: indexd_response
+          valueFrom:
+            path: /mnt/vol/did.json
+          globalName: indexd_response
