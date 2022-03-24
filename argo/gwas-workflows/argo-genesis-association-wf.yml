@@ -9,6 +9,16 @@ spec:
   entrypoint: null-model
   podGC:
     strategy: OnWorkflowSuccess
+  nodeSelector:
+    role: "workflow"
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "workflow"
+      effect: "NoSchedule"
+  podMetadata:
+    labels:
+      gen3username: "user-user-40university-2eedu"
   arguments:
     parameters:
       - name: pheno_csv_key
@@ -245,6 +255,22 @@ spec:
                   s3:
                     key: "{{workflow.name}}/single_assoc_combined/{{workflow.parameters.out_prefix}}_chr{{item}}.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+
+          - name: archive-outputs
+            template: run-tar
+            dependencies: [run-plots, annotate-statistics]
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{workflow.parameters.out_prefix}}"
+              artifacts:
+                - name: manhattan_plot
+                  from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
+                - name: qq_plot 
+                  from: "{{tasks.run-plots.outputs.artifacts.qq_plot}}"
+                - name: annotated_csvs
+                  s3:
+                    key: "{{workflow.name}}/annotated_csvs"
 
     - name: impute-score-filter
       inputs:
@@ -755,14 +781,12 @@ spec:
       outputs:
         artifacts:
           - name: manhattan_plot
-            globalName: gwas_manhattan_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_manhattan.png"
             archive:
               none: {}
             s3:
               key: "{{workflow.name}}/gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
           - name: qq_plot
-            globalName: gwas_qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
               none: {}
@@ -834,3 +858,45 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/annotated_csvs/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"
+
+    - name: run-tar
+      inputs:
+        parameters:
+          - name: out_prefix
+        artifacts:
+          - name: manhattan_plot
+            path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}_manhattan.png"
+          - name: qq_plot 
+            path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}_qq.png"
+          - name: annotated_csvs
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/annotated_summary_csvs"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+
+      script:
+        image: alpine:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          cd /mnt/vol
+          tar -czf {{workflow.name}}.tar.gz {{workflow.name}}/
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 256m
+            memory: 500Mi
+
+      outputs:
+        artifacts:
+          - name: gwas_archive
+            globalName: gwas-archive
+            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
