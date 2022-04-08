@@ -6,7 +6,7 @@ metadata:
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
 spec:
-  entrypoint: null-model
+  entrypoint: gwas-workflow
   podGC:
     strategy: OnWorkflowSuccess
   nodeSelector:
@@ -21,18 +21,17 @@ spec:
       gen3username: "user-user-40university-2eedu"
   arguments:
     parameters:
-      - name: pheno_csv_key
-        value: 250k.prod_height_pheno.csv
+      - name: cohort_definition_id
+        value: 2
       - name: n_pcs
         default: 0
-        value: 10
+        value: 3
       - name: covariates
-        value: gender age Hare
+        value: ID_2000006886 ID_2000000324
       - name: out_prefix
-        default: genesis_vadc
-        value: 250k_vhdcprod_height
+        value: vadc_genesis
       - name: outcome
-        value: Height
+        value: ID_2000006885
       - name: outcome_is_binary
         enum:
           - "TRUE"
@@ -97,8 +96,9 @@ spec:
     - name: workdir
       emptyDir:
         sizeLimit: "10Gi"
+
   templates:
-    - name: null-model
+    - name: gwas-workflow
       dag:
         tasks:
           - name: run-impute-score-filter
@@ -117,7 +117,7 @@ spec:
               artifacts:
                 - name: pheno_csv
                   s3:
-                    key: "{{workflow.parameters.pheno_csv_key}}"
+                    key: "{{workflow.parameters.cohort_definition_id}}.pheno.csv"
 
           - name: run-null-model
             template: run-null-model
@@ -271,6 +271,25 @@ spec:
                 - name: annotated_csvs
                   s3:
                     key: "{{workflow.name}}/annotated_csvs"
+
+          - name: generate-indexd-meta
+            template: gen-indexd-meta
+            dependencies: [run-tar]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "/cohort-middleware/{{workflow.parameters.cohort_definition_id}}"
+              artifacts:
+                - name: gwas_archive
+                  from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
+
+          - name: create-indexd-record
+            template: gen-indexd-record
+            dependencies: [gen-indexd-meta]
+            arguments:
+              artifacts:
+                - name: request_data
+                  from: "{{tasks.generate-indexd-meta.outputs.artifacts.indexd_record}}"
 
     - name: impute-score-filter
       inputs:
@@ -894,9 +913,106 @@ spec:
       outputs:
         artifacts:
           - name: gwas_archive
-            globalName: gwas-archive
             path: "/mnt/vol/{{workflow.name}}.tar.gz"
             archive:
               none: {}
             s3:
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
               key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: gen-indexd-meta
+      inputs:
+        parameters:
+          - name: arborist_resource
+        artifacts:
+          - name: gwas_archive
+            path: /mnt/vol/archive.tar.gz
+      script:
+        image: python:3.7
+        imagePullPolicy: IfNotPresent
+        command: [python3]
+        source: |
+          import json
+          import hashlib
+          import os
+
+          def get_md5_sum(fil):
+              md5 = hashlib.md5()
+              with open(fil, 'rb') as fh:
+                  while True:
+                      r = fh.read(8192)
+                      if not r:
+                          break
+                      md5.update(r)
+              return {"md5": str(md5.hexdigest())}
+
+          if __name__ == '__main__':
+              hash_meta = get_md5_sum("{{inputs.artifacts.gwas_archive.path}}")
+              fsize = int(os.stat("{{inputs.artifacts.gwas_archive.path}}").st_size)
+              data = {
+                "authz": ["{{inputs.parameters.arborist_resource}}"],
+                "file_name": "{{workflow.name}}.tar.gz",
+                "hashes": hash_meta,
+                "size": fsize,
+                "urls": ["s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz"],
+                "urls_metadata": {
+                        "s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz": {}
+                },
+                "form": "object"
+              }
+              with open("/mnt/vol/record.json", 'wt') as o:
+                  json.dump(data, o)
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: indexd_record
+            path: "/mnt/vol/record.json" 
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/indexd_record.json"
+
+    - name: gen-indexd-record
+      inputs:
+        artifacts:
+          - name: request_data
+            path: /mnt/vol/request.json
+      script:
+        image: alpine/curl:3.14
+        imagePullPolicy: IfNotPresent
+        command: [sh]
+        source: |
+          AUTH=$(echo -ne "$INDEXDUSER:$INDEXDPASS" | base64 -w 0)
+          curl \
+          --header "Content-Type: application/json" \
+          --header "Authorization: Basic $AUTH" \
+          --request POST --data "@/mnt/vol/request.json" https://va.data-commons.org/index/index > /mnt/vol/did.json
+        env:
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did.json
+            globalName: gwas_archive_index
