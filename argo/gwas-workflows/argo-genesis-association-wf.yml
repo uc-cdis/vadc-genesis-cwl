@@ -274,7 +274,7 @@ spec:
 
           - name: generate-indexd-meta
             template: gen-indexd-meta
-            dependencies: [run-tar]
+            dependencies: [archive-outputs]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -285,7 +285,7 @@ spec:
 
           - name: create-indexd-record
             template: gen-indexd-record
-            dependencies: [gen-indexd-meta]
+            dependencies: [generate-indexd-meta]
             arguments:
               artifacts:
                 - name: request_data
