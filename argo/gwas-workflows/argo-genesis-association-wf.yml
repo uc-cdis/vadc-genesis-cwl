@@ -6,7 +6,7 @@ metadata:
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
 spec:
-  entrypoint: null-model
+  entrypoint: gwas-workflow
   podGC:
     strategy: OnWorkflowSuccess
   nodeSelector:
@@ -18,21 +18,29 @@ spec:
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-user-40university-2eedu"
+      gen3username: "user-kmhernan-40uchicago-2eedu"
+    annotations:
+      gen3username: "kmhernan@uchicago.edu"
   arguments:
     parameters:
-      - name: pheno_csv_key
-        value: 250k.prod_height_pheno.csv
+      - name: cohort_definition_id
+        value: 2
+      - name: cohort_middleware_url
+        value: "http://cohort-middleware-service.default/cohort-data/by-source-id/4/by-cohort-definition-id/70"
+      - name: cohort_middleware_body
+        value: |-
+          {
+            "PrefixedConceptIds": ["ID_2000006885", "ID_2000006886", "ID_2000000324"]
+          }
       - name: n_pcs
         default: 0
-        value: 10
+        value: 3
       - name: covariates
-        value: gender age Hare
+        value: ID_2000006886 ID_2000000324
       - name: out_prefix
-        default: genesis_vadc
-        value: 250k_vhdcprod_height
+        value: vadc_genesis
       - name: outcome
-        value: Height
+        value: ID_2000006885
       - name: outcome_is_binary
         enum:
           - "TRUE"
@@ -97,12 +105,31 @@ spec:
     - name: workdir
       emptyDir:
         sizeLimit: "10Gi"
+
   templates:
-    - name: null-model
+    - name: gwas-workflow
       dag:
         tasks:
+          - name: get-pheno-csv
+            template: get-cohort-middleware-csv
+            arguments:
+              parameters:
+                - name: cohort_middleware_url
+                  value: "{{workflow.parameters.cohort_middleware_url}}"
+                - name: cohort_middleware_body
+                  value: "{{workflow.parameters.cohort_middleware_body}}"
+
+          - name: generate-pheno
+            template: generate-pheno
+            dependencies: [get-pheno-csv]
+            arguments:
+              artifacts:
+                - name: pheno_csv
+                  from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
+
           - name: run-impute-score-filter
             template: impute-score-filter
+            dependencies: [generate-pheno]
             arguments:
               parameters:
                 - name: impute_cutoff
@@ -110,14 +137,6 @@ spec:
                 - name: gds_file
                   value: "{{item}}"
             withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
-
-          - name: generate-pheno
-            template: generate-pheno
-            arguments:
-              artifacts:
-                - name: pheno_csv
-                  s3:
-                    key: "{{workflow.parameters.pheno_csv_key}}"
 
           - name: run-null-model
             template: run-null-model
@@ -272,6 +291,96 @@ spec:
                   s3:
                     key: "{{workflow.name}}/annotated_csvs"
 
+          - name: generate-indexd-meta
+            template: gen-indexd-meta
+            dependencies: [archive-outputs]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "/cohort-middleware"
+              artifacts:
+                - name: gwas_archive
+                  from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
+
+          - name: create-indexd-record
+            template: gen-indexd-record
+            dependencies: [generate-indexd-meta]
+            arguments:
+              artifacts:
+                - name: request_data
+                  from: "{{tasks.generate-indexd-meta.outputs.artifacts.indexd_record}}"
+
+    - name: get-cohort-middleware-csv
+      inputs:
+        parameters:
+          - name: cohort_middleware_url
+          - name: cohort_middleware_body
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: alpine/curl:3.14
+        imagePullPolicy: IfNotPresent
+        command: [sh]
+        source: |
+          apk add --no-cache jq
+          TOKEN=$(curl --silent http://workspace-token-service.default/token/?idp=default | jq .token -r)
+          curl \
+          --header "Authorization: bearer ${TOKEN}" \
+          --header "Content-Type: application/json" \
+          --request POST \
+          --data '{{inputs.parameters.cohort_middleware_body}}' \
+          {{inputs.parameters.cohort_middleware_url}} > /mnt/vol/pheno.csv
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: pheno_csv
+            path: /mnt/vol/pheno.csv
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/pheno.csv"
+
+    - name: generate-pheno
+      inputs:
+        artifacts:
+          - name: pheno_csv
+            mode: 0777
+            path: "/mnt/vol/phenotypes.csv"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: uwgac/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(Biobase)
+
+          dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}", stringsAsFactors=FALSE, na.strings=c("NA", ""))
+          dat.csv$sample.id <- as.character(dat.csv$sample.id)
+          annot <- AnnotatedDataFrame(dat.csv)
+          stopifnot("sample.id" %in% varLabels(annot))
+          save(annot, file="/mnt/vol/phenotypes.Rdata")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+      outputs:
+        artifacts:
+          - name: phenotype_file
+            path: "/mnt/vol/phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
+
     - name: impute-score-filter
       inputs:
         parameters:
@@ -327,43 +436,6 @@ spec:
             s3:
               key: "{{workflow.name}}/variant_lists"
 
-    - name: generate-pheno
-      inputs:
-        artifacts:
-          - name: pheno_csv
-            mode: 0777
-            path: "/mnt/vol/phenotypes.csv"
-      retryStrategy:
-        limit: "3"
-        retryPolicy: "Always"
-      script:
-        image: uwgac/topmed-master:2.12.0
-        imagePullPolicy: IfNotPresent
-        command: [Rscript]
-        source: |
-          library(Biobase)
-
-          dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}", stringsAsFactors=FALSE)
-          dat.csv$sample.id <- as.character(dat.csv$sample.id)
-          annot <- AnnotatedDataFrame(dat.csv)
-          stopifnot("sample.id" %in% varLabels(annot))
-          save(annot, file="/mnt/vol/phenotypes.Rdata")
-
-        volumeMounts:
-          - name: workdir
-            mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 500m
-            memory: 512Mi
-      outputs:
-        artifacts:
-          - name: phenotype_file
-            path: "/mnt/vol/phenotypes.Rdata"
-            archive:
-              none: {}
-            s3:
-              key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
 
     - name: run-null-model
       inputs:
@@ -437,7 +509,6 @@ spec:
         artifacts:
           - name: null_model_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_datadir"
-            globalName: null_model_results_directory
             archive:
               none: {}
             s3:
@@ -449,7 +520,6 @@ spec:
             s3:
               key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
           - name: null_model_report_directory
-            globalName: null_model_reports_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_reports"
             archive:
               none: {}
@@ -729,7 +799,6 @@ spec:
       outputs:
         artifacts:
           - name: single_assoc_combined
-            globalName: single_assoc_combined
             path: "{{inputs.artifacts.file_shards.path}}/single_assoc_combined"
             archive:
               none: {}
@@ -894,9 +963,106 @@ spec:
       outputs:
         artifacts:
           - name: gwas_archive
-            globalName: gwas-archive
             path: "/mnt/vol/{{workflow.name}}.tar.gz"
             archive:
               none: {}
             s3:
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
               key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: gen-indexd-meta
+      inputs:
+        parameters:
+          - name: arborist_resource
+        artifacts:
+          - name: gwas_archive
+            path: /mnt/vol/archive.tar.gz
+      script:
+        image: python:3.7
+        imagePullPolicy: IfNotPresent
+        command: [python3]
+        source: |
+          import json
+          import hashlib
+          import os
+
+          def get_md5_sum(fil):
+              md5 = hashlib.md5()
+              with open(fil, 'rb') as fh:
+                  while True:
+                      r = fh.read(8192)
+                      if not r:
+                          break
+                      md5.update(r)
+              return {"md5": str(md5.hexdigest())}
+
+          if __name__ == '__main__':
+              hash_meta = get_md5_sum("{{inputs.artifacts.gwas_archive.path}}")
+              fsize = int(os.stat("{{inputs.artifacts.gwas_archive.path}}").st_size)
+              data = {
+                "authz": ["{{inputs.parameters.arborist_resource}}"],
+                "file_name": "{{workflow.name}}.tar.gz",
+                "hashes": hash_meta,
+                "size": fsize,
+                "urls": ["s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz"],
+                "urls_metadata": {
+                        "s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz": {}
+                },
+                "form": "object"
+              }
+              with open("/mnt/vol/record.json", 'wt') as o:
+                  json.dump(data, o)
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: indexd_record
+            path: "/mnt/vol/record.json" 
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/indexd_record.json"
+
+    - name: gen-indexd-record
+      inputs:
+        artifacts:
+          - name: request_data
+            path: /mnt/vol/request.json
+      script:
+        image: alpine/curl:3.14
+        imagePullPolicy: IfNotPresent
+        command: [sh]
+        source: |
+          AUTH=$(echo -ne "$INDEXDUSER:$INDEXDPASS" | base64 -w 0)
+          curl \
+          --header "Content-Type: application/json" \
+          --header "Authorization: Basic $AUTH" \
+          --request POST --data "@/mnt/vol/request.json" http://indexd-service.default/index > /mnt/vol/did.json
+        env:
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did.json
+            globalName: gwas_archive_index
