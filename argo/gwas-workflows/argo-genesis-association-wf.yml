@@ -458,7 +458,6 @@ spec:
         artifacts:
           - name: null_model_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_datadir"
-            globalName: null_model_results_directory
             archive:
               none: {}
             s3:
@@ -470,7 +469,6 @@ spec:
             s3:
               key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_phenotypes.Rdata"
           - name: null_model_report_directory
-            globalName: null_model_reports_directory
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}_reports"
             archive:
               none: {}
@@ -750,7 +748,6 @@ spec:
       outputs:
         artifacts:
           - name: single_assoc_combined
-            globalName: single_assoc_combined
             path: "{{inputs.artifacts.file_shards.path}}/single_assoc_combined"
             archive:
               none: {}
@@ -997,7 +994,7 @@ spec:
           curl \
           --header "Content-Type: application/json" \
           --header "Authorization: Basic $AUTH" \
-          --request POST --data "@/mnt/vol/request.json" https://va.data-commons.org/index/index > /mnt/vol/did.json
+          --request POST --data "@/mnt/vol/request.json" http://indexd-service.default/index > /mnt/vol/did.json
         env:
           - name: INDEXDUSER
             valueFrom:
