@@ -18,7 +18,9 @@ spec:
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-user-40university-2eedu"
+      gen3username: "user-kmhernan-40uchicago-2eedu"
+    annotations:
+      gen3username: "kmhernan@uchicago.edu"
   arguments:
     parameters:
       - name: cohort_definition_id
