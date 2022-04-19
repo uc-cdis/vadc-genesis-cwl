@@ -353,7 +353,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
@@ -390,7 +390,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
@@ -456,7 +456,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
@@ -537,7 +537,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
@@ -683,7 +683,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -768,7 +768,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -819,7 +819,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -876,7 +876,7 @@ spec:
         retryPolicy: "Always"
 
       script:
-        image: uwgac/topmed-master:2.12.0
+        image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
