@@ -24,7 +24,7 @@ spec:
   arguments:
     parameters:
       - name: cohort_definition_id
-        value: 2
+        value: 70
       - name: cohort_middleware_url
         value: "http://cohort-middleware-service.default/cohort-data/by-source-id/4/by-cohort-definition-id/70"
       - name: cohort_middleware_body
@@ -61,7 +61,7 @@ spec:
         value: 0
       - name: segment_length
         default: 10000
-        value: 10000
+        value: 2000
       - name: variant_block_size
         default: 1024
         value: 100
@@ -724,7 +724,7 @@ spec:
 
           Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM \
           --segment {{inputs.parameters.segment}} \
-          --num_cores 2
+          --num_cores 1
 
           SEGOUT="{{inputs.parameters.out_prefix}}_chr${CHROM}_seg{{inputs.parameters.segment}}.RData"
           mkdir single_assoc_chunks
@@ -744,7 +744,7 @@ spec:
         resources:
           requests:
             cpu: 2000m
-            memory: 12000Mi
+            memory: 12Gi
       outputs:
         artifacts:
           - name: single_assoc_segment_output
