@@ -83,16 +83,38 @@ spec:
             default: 0.03
           - name: gds_files
             description: A stringified JSON array of GDS paths on the gateway mount.
+
       dag:
         tasks:
-          - name: get-pheno-csv
-            template: get-cohort-middleware-csv
+          - name: get-quantitative-pheno-csv
+            template: get-cohort-middleware-csv-continuous
             arguments:
               parameters:
-                - name: cohort_middleware_url
-                  value: "{{inputs.parameters.cohort_middleware_url}}"
-                - name: cohort_middleware_body
-                  value: "{{inputs.parameters.cohort_middleware_body}}"
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: case_cohort_id
+                  value: "{{inputs.parameters.case_cohort_definition_id}}"
+                - name: prefixed_concept_ids
+                  value: "{{inputs.parameters.outcome}} {{inputs.parameters.covariates}}"
+                - name: gen3environment
+                  value: "{{inputs.parameters.internal_api_env}}"
+            when: "{{inputs.parameters.control_cohort_definition_id}} == -1"
+
+          - name: get-case-control-pheno-csv
+            template: get-cohort-middleware-csv-case-control
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: case_cohort_id
+                  value: "{{inputs.parameters.case_cohort_definition_id}}"
+                - name: control_cohort_id
+                  value: "{{inputs.parameters.control_cohort_definition_id}}"
+                - name: prefixed_concept_ids
+                  value: "{{inputs.parameters.covariates}}"
+                - name: gen3environment
+                  value: "{{inputs.parameters.internal_api_env}}"
+            when: "{{inputs.parameters.control_cohort_definition_id}} != -1"
 
           - name: generate-pheno
             template: generate-pheno
@@ -285,38 +307,75 @@ spec:
                 - name: request_data
                   from: "{{tasks.generate-indexd-meta.outputs.artifacts.indexd_record}}"
 
-    - name: get-cohort-middleware-csv
+    - name: get-cohort-middleware-csv-continuous
       inputs:
         parameters:
-          - name: cohort_middleware_url
-          - name: cohort_middleware_body
+          - name: source_id
+          - name: case_cohort_id
+          - name: prefixed_concept_ids
+          - name: gen3environment
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
-      script:
-        image: alpine/curl:3.14
-        imagePullPolicy: IfNotPresent
-        command: [sh]
-        source: |
-          apk add --no-cache jq
-          TOKEN=$(curl --silent http://workspace-token-service.default/token/?idp=default | jq .token -r)
-          curl \
-          --header "Authorization: bearer ${TOKEN}" \
-          --header "Content-Type: application/json" \
-          --request POST \
-          --data '{{inputs.parameters.cohort_middleware_body}}' \
-          {{inputs.parameters.cohort_middleware_url}} > /mnt/vol/pheno.csv
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
+          --case_cohort_id {{inputs.parameters.case_cohort_id}} \
+          -o /mnt/vol/pheno.csv.gz \
+          --prefixed_concept_ids {{inputs.parameters.prefixed_concept_ids}}
+        "]
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.gen3environment}}"
       outputs:
         artifacts:
           - name: pheno_csv
-            path: /mnt/vol/pheno.csv
+            path: /mnt/vol/pheno.csv.gz
             archive:
               none: {}
             s3:
-              key: "{{workflow.name}}/{{pod.name}}/pheno.csv"
+              key: "{{workflow.name}}/{{pod.name}}/pheno.csv.gz"
+
+    - name: get-cohort-middleware-csv-case-control
+      inputs:
+        parameters:
+          - name: source_id
+          - name: case_cohort_id
+          - name: control_cohort_id
+          - name: prefixed_concept_ids
+          - name: gen3environment
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
+          --case_cohort_id {{inputs.parameters.case_cohort_id}} \
+          --control_cohort_id {{inputs.parameters.control_cohort_id}} \
+          -o /mnt/vol/pheno.csv.gz \
+          --prefixed_concept_ids {{inputs.parameters.prefixed_concept_ids}}
+        "]
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.gen3environment}}"
+      outputs:
+        artifacts:
+          - name: pheno_csv
+            path: /mnt/vol/pheno.csv.gz
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/pheno.csv.gz"
 
     - name: generate-pheno
       inputs:
