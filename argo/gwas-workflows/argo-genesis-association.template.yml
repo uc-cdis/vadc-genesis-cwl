@@ -4,41 +4,41 @@ metadata:
   name: gwas-template
 spec:
   entrypoint: gwas-workflow
-  arguments:
-    parameters:
-      - name: cohort_definition_id
-      - name: cohort_middleware_url
-      - name: cohort_middleware_body
-      - name: n_pcs
-        default: 0
-      - name: covariates
-      - name: out_prefix
-        value: vadc_genesis
-      - name: outcome
-      - name: outcome_is_binary
-        enum:
-          - "TRUE"
-          - "FALSE"
-        default: "FALSE"
-      - name: pca_file
-      - name: relatedness_matrix_file
-      - name: genome_build
-        enum:
-          - "hg38"
-          - "hg19"
-        default: "hg19"
-      - name: n_segments
-      - name: segment_length
-        default: 10000
-      - name: variant_block_size
-        default: 1024
-      - name: mac_threshold
-      - name: maf_threshold
-      - name: imputation_score_cutoff
-      - name: gds_files
 
   templates:
     - name: gwas-workflow
+      inputs:
+        parameters:
+          - name: cohort_definition_id
+          - name: cohort_middleware_url
+          - name: cohort_middleware_body
+          - name: n_pcs
+            default: 0
+          - name: covariates
+          - name: out_prefix
+            value: vadc_genesis
+          - name: outcome
+          - name: outcome_is_binary
+            enum:
+              - "TRUE"
+              - "FALSE"
+            default: "FALSE"
+          - name: pca_file
+          - name: relatedness_matrix_file
+          - name: genome_build
+            enum:
+              - "hg38"
+              - "hg19"
+            default: "hg19"
+          - name: n_segments
+          - name: segment_length
+            default: 10000
+          - name: variant_block_size
+            default: 1024
+          - name: mac_threshold
+          - name: maf_threshold
+          - name: imputation_score_cutoff
+          - name: gds_files
       dag:
         tasks:
           - name: get-pheno-csv
