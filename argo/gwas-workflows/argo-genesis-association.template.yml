@@ -9,36 +9,80 @@ spec:
     - name: gwas-workflow
       inputs:
         parameters:
-          - name: cohort_definition_id
-          - name: cohort_middleware_url
-          - name: cohort_middleware_body
+          - name: internal_api_env
+            description: |
+              When communicating with Gen3 APIs internally, the internal URLs can refer to
+              different environments. Since argo is running in it's own namespace, we need
+              to set this value. On prod that would be `default` but on QA it would be `qa-mickey`.
+            default: default
+          - name: source_id
+            description: The source ID integer for where the cohorts are defined.
+          - name: case_cohort_definition_id
+            description: |
+              The definition ID integer for the case cohort. If the study is a quantitative
+              phenotype, then there is only one cohort which you can put here.
+          - name: control_cohort_definition_id
+            description: |
+              The definition ID integer for the optional control cohort. If the study is a
+              case-control phenotype, then provide the control cohort's ID here. If it is
+              a quantitative phenotype, set this value to '-1' as the indicator of null.
+            default: -1
           - name: n_pcs
+            description: The number of population PCs to use as covariates.
             default: 0
           - name: covariates
+            description: |
+              A space-delimited list of prefixed concept IDs to use as covariates in the model.
           - name: out_prefix
+            description: Prefix used on all outputs.
             value: vadc_genesis
           - name: outcome
+            description: |
+              The prefixed concept ID for the outcome/phenotype. If this is a case-control
+              study, set this to '-1' to indicate null.
+            default: -1
           - name: outcome_is_binary
             enum:
               - "TRUE"
               - "FALSE"
             default: "FALSE"
           - name: pca_file
+            description: Path to the PCA R object on the gateway mount.
           - name: relatedness_matrix_file
+            description: Path to the Relationship Matrix R object on the gateway mount.
           - name: genome_build
             enum:
               - "hg38"
               - "hg19"
             default: "hg19"
           - name: n_segments
+            description: "Number of segments to use. Setting the `segment_length` will override this."
+            default: 0
           - name: segment_length
+            description: |
+              The chunk size to use for scatter/gather. If you wish to instead set a specific
+              number of chunks, set this value to '0' and provide a value for n_segments
             default: 10000
           - name: variant_block_size
+            description: |
+              The number of variants to hold in memory when doing association tests. This will
+              greatly impact memory requirements and runtime depending on the cohort size and
+              complexity of the model. Large cohorts we usually set to 100 to keep memory below
+              16 GiB.
             default: 1024
           - name: mac_threshold
+            description: |
+              Minor Allele Count threshold to filter markers. If you instead want to use maf_threshold
+              set this value to 0 as an indicator of null.
           - name: maf_threshold
+            description: |
+              Minor Allele Frequency threshold to filter markers.
+            default: 0.01
           - name: imputation_score_cutoff
+            description: Filter markers based on imputation score.
+            default: 0.03
           - name: gds_files
+            description: A stringified JSON array of GDS paths on the gateway mount.
       dag:
         tasks:
           - name: get-pheno-csv
