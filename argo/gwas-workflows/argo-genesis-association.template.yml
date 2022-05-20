@@ -118,11 +118,11 @@ spec:
 
           - name: generate-pheno
             template: generate-pheno
-            dependencies: [get-pheno-csv]
+            dependencies: [get-quantitative-pheno-csv, get-case-control-pheno-csv]
             arguments:
               artifacts:
                 - name: pheno_csv
-                  from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
+                  fromExpression: "inputs.parameters.control_cohort_definition_id == -1 ? tasks['get-quantitative-pheno-csv'].outputs.artifacts.pheno_csv : tasks['get-case-control-pheno-csv'].outputs.artifacts.pheno_csv"
 
           - name: run-impute-score-filter
             template: impute-score-filter
@@ -382,7 +382,7 @@ spec:
         artifacts:
           - name: pheno_csv
             mode: 0777
-            path: "/mnt/vol/phenotypes.csv"
+            path: "/mnt/vol/phenotypes.csv.gz"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -393,8 +393,13 @@ spec:
         source: |
           library(Biobase)
 
-          dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}", stringsAsFactors=FALSE, na.strings=c("NA", ""))
+          dat.csv <- read.csv(gzfile("{{inputs.artifacts.pheno_csv.path}}"),
+                              stringsAsFactors=FALSE, na.strings=c("NA", ""))
+          stopifnot("sample.id" %in% names(dat.csv))
           dat.csv$sample.id <- as.character(dat.csv$sample.id)
+          # Remove NAs
+          dat.csv <- na.omit(dat.csv)
+          # Convert to AnnotatedDataFrame
           annot <- AnnotatedDataFrame(dat.csv)
           stopifnot("sample.id" %in% varLabels(annot))
           save(annot, file="/mnt/vol/phenotypes.Rdata")
