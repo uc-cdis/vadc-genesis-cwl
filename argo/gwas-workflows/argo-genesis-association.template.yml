@@ -46,9 +46,9 @@ spec:
             arguments:
               parameters:
                 - name: cohort_middleware_url
-                  value: "{{workflow.parameters.cohort_middleware_url}}"
+                  value: "{{inputs.parameters.cohort_middleware_url}}"
                 - name: cohort_middleware_body
-                  value: "{{workflow.parameters.cohort_middleware_body}}"
+                  value: "{{inputs.parameters.cohort_middleware_body}}"
 
           - name: generate-pheno
             template: generate-pheno
@@ -64,10 +64,10 @@ spec:
             arguments:
               parameters:
                 - name: impute_cutoff
-                  value: "{{workflow.parameters.imputation_score_cutoff}}"
+                  value: "{{inputs.parameters.imputation_score_cutoff}}"
                 - name: gds_file
                   value: "{{item}}"
-            withParam: "{{=toJson(map(jsonpath(workflow.parameters.gds_files, '$'), {#}))}}"
+            withParam: "{{=toJson(map(jsonpath(inputs.parameters.gds_files, '$'), {#}))}}"
 
           - name: run-null-model
             template: run-null-model
@@ -75,19 +75,19 @@ spec:
             arguments:
               parameters:
                 - name: n_pcs
-                  value: "{{workflow.parameters.n_pcs}}"
+                  value: "{{inputs.parameters.n_pcs}}"
                 - name: covariates
-                  value: "{{workflow.parameters.covariates}}"
+                  value: "{{inputs.parameters.covariates}}"
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}_null_model"
+                  value: "{{inputs.parameters.out_prefix}}_null_model"
                 - name: outcome
-                  value: "{{workflow.parameters.outcome}}"
+                  value: "{{inputs.parameters.outcome}}"
                 - name: outcome_is_binary
-                  value: "{{workflow.parameters.outcome_is_binary}}"
+                  value: "{{inputs.parameters.outcome_is_binary}}"
                 - name: pca_file
-                  value: "{{workflow.parameters.pca_file}}"
+                  value: "{{inputs.parameters.pca_file}}"
                 - name: relatedness_matrix_file
-                  value: "{{workflow.parameters.relatedness_matrix_file}}"
+                  value: "{{inputs.parameters.relatedness_matrix_file}}"
               artifacts:
                 - name: phenotype_file
                   from: "{{tasks.generate-pheno.outputs.artifacts.phenotype_file}}"
@@ -97,18 +97,18 @@ spec:
             arguments:
               parameters:
                 - name: genome_build
-                  value: "{{workflow.parameters.genome_build}}"
+                  value: "{{inputs.parameters.genome_build}}"
                 - name: n_segments
-                  value: "{{workflow.parameters.n_segments}}"
+                  value: "{{inputs.parameters.n_segments}}"
                 - name: segment_length
-                  value: "{{workflow.parameters.segment_length}}"
+                  value: "{{inputs.parameters.segment_length}}"
 
           - name: split-filename
             template: split-filename
             arguments:
               parameters:
                 - name: gds_file
-                  value: "{{=map(jsonpath(workflow.parameters.gds_files, '$'), {#})[0]}}"
+                  value: "{{=map(jsonpath(inputs.parameters.gds_files, '$'), {#})[0]}}"
 
           - name: filter-segments
             template: filter-segments
@@ -120,7 +120,7 @@ spec:
                 - name: file_suffix
                   value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
                 - name: gds_filenames
-                  value: "{{workflow.parameters.gds_files}}"
+                  value: "{{inputs.parameters.gds_files}}"
               artifacts:
                 - name: segment_file
                   from: "{{tasks.define-segments.outputs.artifacts.segment_file}}"
@@ -135,19 +135,19 @@ spec:
                 - name: file_suffix
                   value: "{{=jsonpath(tasks['split-filename'].outputs.result, '$.file_suffix')}}"
                 - name: gds_files
-                  value: "{{workflow.parameters.gds_files}}"
+                  value: "{{inputs.parameters.gds_files}}"
                 - name: genome_build
-                  value: "{{workflow.parameters.genome_build}}"
+                  value: "{{inputs.parameters.genome_build}}"
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}"
+                  value: "{{inputs.parameters.out_prefix}}"
                 - name: variant_block_size
-                  value: "{{workflow.parameters.variant_block_size}}"
+                  value: "{{inputs.parameters.variant_block_size}}"
                 - name: outcome_is_binary
-                  value: "{{workflow.parameters.outcome_is_binary}}"
+                  value: "{{inputs.parameters.outcome_is_binary}}"
                 - name: mac_threshold
-                  value: "{{workflow.parameters.mac_threshold}}"
+                  value: "{{inputs.parameters.mac_threshold}}"
                 - name: maf_threshold
-                  value: "{{workflow.parameters.maf_threshold}}"
+                  value: "{{inputs.parameters.maf_threshold}}"
                 - name: segment
                   value: "{{item}}"
               artifacts:
@@ -170,7 +170,7 @@ spec:
                 - name: chromosome
                   value: "{{item}}"
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}"
+                  value: "{{inputs.parameters.out_prefix}}"
               artifacts:
                 - name: file_shards
                   s3:
@@ -185,7 +185,7 @@ spec:
                 - name: chromosomes
                   value: "{{=sprig.join(' ', jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}"
+                  value: "{{inputs.parameters.out_prefix}}"
               artifacts:
                 - name: combined
                   s3:
@@ -199,11 +199,11 @@ spec:
                 - name: chromosome
                   value: "{{item}}"
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}"
+                  value: "{{inputs.parameters.out_prefix}}"
               artifacts:
                 - name: raw_stats
                   s3:
-                    key: "{{workflow.name}}/single_assoc_combined/{{workflow.parameters.out_prefix}}_chr{{item}}.RData"
+                    key: "{{workflow.name}}/single_assoc_combined/{{inputs.parameters.out_prefix}}_chr{{item}}.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
 
           - name: archive-outputs
@@ -212,7 +212,7 @@ spec:
             arguments:
               parameters:
                 - name: out_prefix
-                  value: "{{workflow.parameters.out_prefix}}"
+                  value: "{{inputs.parameters.out_prefix}}"
               artifacts:
                 - name: manhattan_plot
                   from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
