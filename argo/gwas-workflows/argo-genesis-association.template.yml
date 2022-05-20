@@ -41,11 +41,6 @@ spec:
               The prefixed concept ID for the outcome/phenotype. If this is a case-control
               study, set this to '-1' to indicate null.
             default: -1
-          - name: outcome_is_binary
-            enum:
-              - "TRUE"
-              - "FALSE"
-            default: "FALSE"
           - name: pca_file
             description: Path to the PCA R object on the gateway mount.
           - name: relatedness_matrix_file
@@ -147,9 +142,9 @@ spec:
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}_null_model"
                 - name: outcome
-                  value: "{{inputs.parameters.outcome}}"
+                  value: "{{= inputs.parameters.control_cohort_definition_id == -1 ? inputs.parameters.outcome : 'CASE_CONTROL' }}"
                 - name: outcome_is_binary
-                  value: "{{inputs.parameters.outcome_is_binary}}"
+                  value: "{{= inputs.parameters.control_cohort_definition_id == -1 ? 'FALSE' : 'TRUE' }}"
                 - name: pca_file
                   value: "{{inputs.parameters.pca_file}}"
                 - name: relatedness_matrix_file
@@ -209,7 +204,7 @@ spec:
                 - name: variant_block_size
                   value: "{{inputs.parameters.variant_block_size}}"
                 - name: outcome_is_binary
-                  value: "{{inputs.parameters.outcome_is_binary}}"
+                  value: "{{= inputs.parameters.control_cohort_definition_id == -1 ? 'FALSE' : 'TRUE' }}"
                 - name: mac_threshold
                   value: "{{inputs.parameters.mac_threshold}}"
                 - name: maf_threshold
