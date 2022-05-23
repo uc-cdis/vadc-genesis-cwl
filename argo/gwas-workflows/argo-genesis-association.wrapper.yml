@@ -26,15 +26,14 @@ spec:
       gen3username: "kmhernan@uchicago.edu"
   arguments:
     parameters:
-      - name: cohort_definition_id
+      - name: internal_api_env
+        value: default
+      - name: source_id
+        value: 4
+      - name: case_cohort_definition_id
         value: 70
-      - name: cohort_middleware_url
-        value: "http://cohort-middleware-service.default/cohort-data/by-source-id/4/by-cohort-definition-id/70"
-      - name: cohort_middleware_body
-        value: |-
-          {
-            "PrefixedConceptIds": ["ID_2000006885", "ID_2000006886", "ID_2000000324"]
-          }
+      - name: control_cohort_definition_id
+        value: -1
       - name: n_pcs
         default: 0
         value: 3
@@ -44,12 +43,6 @@ spec:
         value: vadc_genesis
       - name: outcome
         value: ID_2000006885
-      - name: outcome_is_binary
-        enum:
-          - "TRUE"
-          - "FALSE"
-        default: "FALSE"
-        value: "FALSE"
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
