@@ -609,23 +609,13 @@ spec:
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
-
-      script:
-        image: python:3.7
-        imagePullPolicy: IfNotPresent
-        command: [python3]
-        source: |
-          import json
-          import os
-          import sys
-
-          gds_file = "{{inputs.parameters.gds_file}}"
-          bname = os.path.basename(gds_file)
-          pfx = bname.split("chr")[0] + 'chr'
-          sfx = "." + ".".join(bname.split("chr")[1].split(".")[1:])
-          dat = {"file_prefix": pfx, "file_suffix": sfx}
-          json.dump(dat, sys.stdout)
-
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
+          --gds_file {{inputs.parameters.gds_file}}
+        "]
         resources:
           requests:
             cpu: 50m
