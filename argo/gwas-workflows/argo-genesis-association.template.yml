@@ -265,6 +265,13 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
       outputs:
         artifacts:
           - name: pheno_csv
@@ -986,6 +993,13 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
       outputs:
         artifacts:
           - name: indexd_record
@@ -1024,6 +1038,13 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
       outputs:
         parameters:
           - name: gwas_archive_index
