@@ -633,36 +633,16 @@ spec:
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
-
-      script:
-        image: python:3.7
-        imagePullPolicy: IfNotPresent
-        command: [python3]
-        source: |
-          import json
-          import os
-          import sys
-
-          gds_files = set([os.path.basename(i) for i in {{inputs.parameters.gds_filenames}}])
-          file_prefix = "{{inputs.parameters.file_prefix}}"
-          file_suffix = "{{inputs.parameters.file_suffix}}"
-          segments_file = "{{inputs.artifacts.segment_file.path}}"
-
-          chromosomes_present = set()
-          segments = []
-          with open(segments_file, "rt") as f:
-              for n, line in enumerate(f.readlines()):
-                  chrom = line.split()[0]
-                  if file_prefix + chrom + file_suffix in gds_files:
-                      chromosomes_present.add(chrom)
-                      segments += [n]
-
-          dat = {
-            "chromosomes": list(chromosomes_present),
-            "segments": segments
-          }
-          json.dump(dat, sys.stdout)
-
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools FilterSegments \
+          --file_prefix {{inputs.parameters.file_prefix}} \
+          --file_suffix {{inputs.parameters.file_suffix}} \
+          --segment_file {{inputs.artifacts.segment_file.path}} \
+          {{=sprig.join(' ', map(jsonpath(inputs.parameters.gds_filenames, '$'), {#}))}}
+        "]
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
