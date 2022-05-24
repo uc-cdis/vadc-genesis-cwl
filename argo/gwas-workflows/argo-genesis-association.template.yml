@@ -219,7 +219,6 @@ spec:
 
           - name: generate-gwas-metadata
             template: get-gwas-metadata
-            dependencies: [combine-shards]
             arguments:
               parameters:
                 - name: source_id
@@ -973,7 +972,7 @@ spec:
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
-          if [["{{inputs.parameters.control_cohort_id}}" == "-1"]]; then
+          if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
               CONCEPT_IDS="{{inputs.parameters.prefixed_outcome_concept_id}} {{inputs.parameters.prefixed_concept_ids}}"
               OUTCOME_ID=" --prefixed_outcome_concept_id {{inputs.parameters.prefixed_outcome_concept_id}}"
           else
