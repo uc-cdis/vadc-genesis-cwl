@@ -977,7 +977,7 @@ spec:
               OUTCOME_ID=" --prefixed_outcome_concept_id {{inputs.parameters.prefixed_outcome_concept_id}}"
           else
               CONCEPT_IDS="{{inputs.parameters.prefixed_concept_ids}}"
-              OUTCOME_ID=""
+              OUTCOME_ID=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
           fi
 
           /env/bin/vadc-gwas-tools GetGwasMetadata \
