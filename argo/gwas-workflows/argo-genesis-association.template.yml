@@ -72,9 +72,9 @@ spec:
             arguments:
               parameters:
                 - name: prefixed_hare_concept_id
-                  from: "{{inputs.parameters.prefixed_hare_concept_id}}"
+                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
                 - name: hare_population 
-                  from: "{{inputs.parameters.hare_population}}"
+                  value: "{{inputs.parameters.hare_population}}"
               artifacts:
                 - name: pheno_csv
                   from: "{{tasks.get-pheno-csv-flow.outputs.artifacts.pheno_csv}}"
