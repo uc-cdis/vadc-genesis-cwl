@@ -34,6 +34,8 @@ spec:
         value: 70
       - name: control_cohort_definition_id
         value: -1
+      - name: hare_population
+        value: "non-hispanic White"
       - name: n_pcs
         default: 0
         value: 3
