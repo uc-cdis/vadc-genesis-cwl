@@ -122,7 +122,7 @@ spec:
           arguments:
             parameters:
               - name: arborist_resource
-                value: "/cohort-middleware"
+                value: "/programs/DEV/projects/test"
               - name: internal_api_env
                 value: "{{inputs.parameters.internal_api_env}}"
             artifacts:
@@ -385,7 +385,7 @@ spec:
       command: ["/bin/bash", "-c"]
       args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
               --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-              --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz \
+              --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{workflow.name}}.tar.gz \
               --arborist_resource {{inputs.parameters.arborist_resource}} \
               -o /mnt/vol/did.json"]
       env:
