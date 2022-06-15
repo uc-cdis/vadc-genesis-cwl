@@ -340,7 +340,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:master
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
@@ -375,7 +375,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:master
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
@@ -669,7 +669,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:master
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -696,7 +696,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:master
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1021,7 +1021,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:master
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
