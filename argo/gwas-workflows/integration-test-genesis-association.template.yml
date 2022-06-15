@@ -412,7 +412,8 @@ spec:
           cpu: 100m
           memory: 100Mi
     outputs:
-      artifacts:
+      parameters:
         - name: gwas_archive_index
-          path: /mnt/vol/did.json
+          valueFrom:
+            path: /mnt/vol/did.json
           globalName: gwas_archive_index
