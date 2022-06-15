@@ -258,24 +258,18 @@ spec:
                 - name: gwas_metadata
                   from: "{{tasks.generate-gwas-metadata.outputs.artifacts.gwas_metadata}}"
 
-          - name: generate-indexd-meta
-            template: gen-indexd-meta
+          - name: create-indexd-record
+            template: create-indexd-record
             dependencies: [archive-outputs]
             arguments:
               parameters:
                 - name: arborist_resource
                   value: "/cohort-middleware"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
               artifacts:
                 - name: gwas_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
-
-          - name: create-indexd-record
-            template: gen-indexd-record
-            dependencies: [generate-indexd-meta]
-            arguments:
-              artifacts:
-                - name: request_data
-                  from: "{{tasks.generate-indexd-meta.outputs.artifacts.indexd_record}}"
 
     - name: get-pheno-dag
       inputs:
@@ -1095,83 +1089,26 @@ spec:
                 name: argo-s3-creds
                 key: SecretAccessKey
 
-    - name: gen-indexd-meta
+    - name: create-indexd-record
       inputs:
         parameters:
           - name: arborist_resource
+          - name: internal_api_env
         artifacts:
           - name: gwas_archive
-            path: /mnt/vol/archive.tar.gz
-      script:
-        image: python:3.7
-        imagePullPolicy: IfNotPresent
-        command: [python3]
-        source: |
-          import json
-          import hashlib
-          import os
-
-          def get_md5_sum(fil):
-              md5 = hashlib.md5()
-              with open(fil, 'rb') as fh:
-                  while True:
-                      r = fh.read(8192)
-                      if not r:
-                          break
-                      md5.update(r)
-              return {"md5": str(md5.hexdigest())}
-
-          if __name__ == '__main__':
-              hash_meta = get_md5_sum("{{inputs.artifacts.gwas_archive.path}}")
-              fsize = int(os.stat("{{inputs.artifacts.gwas_archive.path}}").st_size)
-              data = {
-                "authz": ["{{inputs.parameters.arborist_resource}}"],
-                "file_name": "{{workflow.name}}.tar.gz",
-                "hashes": hash_meta,
-                "size": fsize,
-                "urls": ["s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz"],
-                "urls_metadata": {
-                        "s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz": {}
-                },
-                "form": "object"
-              }
-              with open("/mnt/vol/record.json", 'wt') as o:
-                  json.dump(data, o)
-        volumeMounts:
-          - name: workdir
-            mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 50m
-            memory: 50Mi
-          limits:
-            cpu: 100m
-            memory: 100Mi
-      outputs:
-        artifacts:
-          - name: indexd_record
-            path: "/mnt/vol/record.json" 
-            archive:
-              none: {}
-            s3:
-              key: "{{workflow.name}}/{{pod.name}}/indexd_record.json"
-
-    - name: gen-indexd-record
-      inputs:
-        artifacts:
-          - name: request_data
-            path: /mnt/vol/request.json
-      script:
-        image: alpine/curl:3.14
-        imagePullPolicy: IfNotPresent
-        command: [sh]
-        source: |
-          AUTH=$(echo -ne "$INDEXDUSER:$INDEXDPASS" | base64 -w 0)
-          curl \
-          --header "Content-Type: application/json" \
-          --header "Authorization: Basic $AUTH" \
-          --request POST --data "@/mnt/vol/request.json" http://indexd-service.default/index > /mnt/vol/did.json
+            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did.json"]
         env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
           - name: INDEXDUSER
             valueFrom:
               secretKeyRef:
@@ -1193,8 +1130,7 @@ spec:
             cpu: 100m
             memory: 100Mi
       outputs:
-        parameters:
+        artifacts:
           - name: gwas_archive_index
-            valueFrom:
-              path: /mnt/vol/did.json
+            path: /mnt/vol/did.json
             globalName: gwas_archive_index
