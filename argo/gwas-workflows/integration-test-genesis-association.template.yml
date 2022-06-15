@@ -380,7 +380,7 @@ spec:
         - name: gwas_archive
           path: "/mnt/vol/{{workflow.name}}.tar.gz"
     container:
-      image: quay.io/cdis/vadc-gwas-tools:feat_create-indexd-record
+      image: quay.io/cdis/vadc-gwas-tools:0.1.0
       imagePullPolicy: Always
       command: ["/bin/bash", "-c"]
       args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
