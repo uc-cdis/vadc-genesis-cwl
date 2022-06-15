@@ -141,7 +141,7 @@ spec:
         - name: prefixed_hare_concept_id
         - name: internal_api_env
     script:
-      image: quay.io/cdis/vadc-gwas-tools:feat_PXP-9944-hare-metadata
+      image: quay.io/cdis/vadc-gwas-tools:0.1.0
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -239,7 +239,7 @@ spec:
         - name: imputation_score_cutoff
         - name: hare_population
     script:
-      image: quay.io/cdis/vadc-gwas-tools:fix_optional-domain-props
+      image: quay.io/cdis/vadc-gwas-tools:0.1.0
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -287,7 +287,7 @@ spec:
         - name: prefixed_breakdown_concept_id
         - name: internal_api_env
     script:
-      image: quay.io/cdis/vadc-gwas-tools:feat_PXP-9986-attrition-table
+      image: quay.io/cdis/vadc-gwas-tools:0.1.0
       imagePullPolicy: Always
       command: ["/bin/bash"]
       source: |
