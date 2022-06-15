@@ -15,6 +15,9 @@ spec:
           - name: case_cohort_definition_id
           - name: control_cohort_definition_id
             default: -1
+          - name: prefixed_hare_concept_id
+            default: ID_2000007027
+          - name: hare_population
           - name: n_pcs
             default: 0
           - name: covariates
@@ -54,6 +57,8 @@ spec:
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
                 - name: control_cohort_definition_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
+                - name: prefixed_hare_concept_id 
+                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
                 - name: outcome
                   value: "{{inputs.parameters.outcome}}"
                 - name: covariates
@@ -65,6 +70,11 @@ spec:
             template: generate-pheno
             dependencies: [get-pheno-csv-flow]
             arguments:
+              parameters:
+                - name: prefixed_hare_concept_id
+                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
+                - name: hare_population 
+                  value: "{{inputs.parameters.hare_population}}"
               artifacts:
                 - name: pheno_csv
                   from: "{{tasks.get-pheno-csv-flow.outputs.artifacts.pheno_csv}}"
@@ -239,6 +249,8 @@ spec:
                   value: "{{inputs.parameters.maf_threshold}}"
                 - name: imputation_score_cutoff
                   value: "{{inputs.parameters.imputation_score_cutoff}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
 
           - name: archive-outputs
             template: run-tar
@@ -284,6 +296,7 @@ spec:
           - name: source_id
           - name: case_cohort_definition_id
           - name: control_cohort_definition_id
+          - name: prefixed_hare_concept_id
           - name: outcome
           - name: covariates
       dag:
@@ -297,7 +310,7 @@ spec:
                 - name: case_cohort_id
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
                 - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.outcome}} {{inputs.parameters.covariates}}"
+                  value: "{{inputs.parameters.outcome}} {{inputs.parameters.covariates}} {{inputs.parameters.prefixed_hare_concept_id}}"
                 - name: gen3environment
                   value: "{{inputs.parameters.internal_api_env}}"
             when: "{{inputs.parameters.control_cohort_definition_id}} == -1"
@@ -313,7 +326,7 @@ spec:
                 - name: control_cohort_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
                 - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.covariates}}"
+                  value: "{{inputs.parameters.covariates}} {{inputs.parameters.prefixed_hare_concept_id}}"
                 - name: gen3environment
                   value: "{{inputs.parameters.internal_api_env}}"
             when: "{{inputs.parameters.control_cohort_definition_id}} != -1"
@@ -401,6 +414,9 @@ spec:
 
     - name: generate-pheno
       inputs:
+        parameters:
+          - name: prefixed_hare_concept_id
+          - name: hare_population
         artifacts:
           - name: pheno_csv
             mode: 0777
@@ -419,8 +435,13 @@ spec:
                               stringsAsFactors=FALSE, na.strings=c("NA", ""))
           stopifnot("sample.id" %in% names(dat.csv))
           dat.csv$sample.id <- as.character(dat.csv$sample.id)
+
+          # Filter to HARE population
+          dat.csv <- subset(dat.csv, {{inputs.parameters.prefixed_hare_concept_id}} == "{{inputs.parameters.hare_population}}")
+
           # Remove NAs
           dat.csv <- na.omit(dat.csv)
+
           # Convert to AnnotatedDataFrame
           annot <- AnnotatedDataFrame(dat.csv)
           stopifnot("sample.id" %in% varLabels(annot))
@@ -1001,6 +1022,7 @@ spec:
           - name: n_pcs
           - name: maf_threshold
           - name: imputation_score_cutoff
+          - name: hare_population
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1024,6 +1046,7 @@ spec:
           --n_pcs {{inputs.parameters.n_pcs}} \
           --maf_threshold {{inputs.parameters.maf_threshold}} \
           --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
+          --hare_population "{{inputs.parameters.hare_population}}" \
           --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
 
         volumeMounts:

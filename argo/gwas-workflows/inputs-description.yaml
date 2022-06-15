@@ -18,6 +18,9 @@ inputs:
         case-control phenotype, then provide the control cohort's ID here. If it is
         a quantitative phenotype, set this value to '-1' as the indicator of null.
       default: -1
+    - name: hare_population
+      description: |
+        The name of the HARE population selected by the user to filter by.
     - name: n_pcs
       description: The number of population PCs to use as covariates.
       default: 0
