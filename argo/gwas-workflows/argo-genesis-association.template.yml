@@ -289,7 +289,7 @@ spec:
                 - name: gwas_metadata
                   from: "{{tasks.generate-gwas-metadata.outputs.artifacts.gwas_metadata}}"
                 - name: attrition_csvs
-                  from: "{{tasks.generate-attrition-csv.outputs.artificats.attrition_table_directory}}"
+                  from: "{{tasks.generate-attrition-csv.outputs.artifacts.attrition_table_directory}}"
 
           - name: create-indexd-record
             template: create-indexd-record
