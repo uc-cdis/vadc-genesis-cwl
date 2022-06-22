@@ -372,6 +372,13 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 500m
+            memory: 500Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.gen3environment}}"
@@ -410,11 +417,11 @@ spec:
             mountPath: /mnt/vol
         resources:
           requests:
-            cpu: 50m
-            memory: 50Mi
+            cpu: 500m
+            memory: 500Mi
           limits:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 1000m
+            memory: 1Gi
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.gen3environment}}"
