@@ -7,16 +7,16 @@ metadata:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3username: "user-kmhernan-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
     strategy: OnWorkflowSuccess
   podMetadata:
     labels:
-      gen3username: "user-vzpgb-40uchicago-2eedu"
+      gen3username: "user-kmhernan-40uchicago-2eedu"
     annotations:
-      gen3username: "vzpgb@uchicago.edu"
+      gen3username: "kmhernan@uchicago.edu"
   arguments:
     parameters:
       - name: internal_api_env
@@ -32,12 +32,17 @@ spec:
       - name: n_pcs
         default: 0
         value: 3
-      - name: covariates
-        value: ID_2000006886
+      - name: variables
+        value: |
+          [
+            {"variable_type": "concept", "concept_id": 2000006886},
+            {"variable_type": "concept", "concept_id": 2000006885},
+            {"variable_type": "custom_dichotomous", "cohort_ids": [301, 401], "provided_name": "My Custom Dichotomous"}
+          ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
-        value: ID_2000006885
+        value: 2000006885
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
