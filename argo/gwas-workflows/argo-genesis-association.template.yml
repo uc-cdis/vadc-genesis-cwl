@@ -62,6 +62,7 @@ spec:
 
           - name: get-pheno-csv
             template: get-cohort-middleware-pheno-csv
+            dependencies: [process-variables]
             arguments:
               parameters:
                 - name: source_id
@@ -78,16 +79,16 @@ spec:
 
           - name: generate-pheno
             template: generate-pheno
-            dependencies: [get-pheno-csv-flow]
+            dependencies: [get-pheno-csv]
             arguments:
               parameters:
                 - name: prefixed_hare_concept_id
-                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
+                  value: "ID_{{inputs.parameters.hare_concept_id}}"
                 - name: hare_population 
                   value: "{{inputs.parameters.hare_population}}"
               artifacts:
                 - name: pheno_csv
-                  from: "{{tasks.get-pheno-csv-flow.outputs.artifacts.pheno_csv}}"
+                  from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
 
           - name: run-impute-score-filter
             template: impute-score-filter
@@ -108,11 +109,11 @@ spec:
                 - name: n_pcs
                   value: "{{inputs.parameters.n_pcs}}"
                 - name: covariates
-                  value: "{{inputs.parameters.covariates}}"
+                  value: "{{tasks.process-variables.outputs.parameters.covariates}}"
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}_null_model"
                 - name: outcome
-                  value: "{{= inputs.parameters.control_cohort_definition_id == '-1' ? inputs.parameters.outcome : 'CASE_CONTROL' }}"
+                  value: "{{= inputs.parameters.control_cohort_definition_id == '-1' ? 'ID_' + inputs.parameters.outcome : 'CASE_CONTROL' }}"
                 - name: outcome_is_binary
                   value: "{{= inputs.parameters.control_cohort_definition_id == '-1' ? 'FALSE' : 'TRUE' }}"
                 - name: pca_file
@@ -239,6 +240,7 @@ spec:
 
           - name: generate-gwas-metadata
             template: get-gwas-metadata
+            dependencies: [process-variables]
             arguments:
               parameters:
                 - name: source_id
@@ -247,10 +249,8 @@ spec:
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
                 - name: control_cohort_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
-                - name: prefixed_outcome_concept_id
+                - name: outcome_concept_id
                   value: "{{inputs.parameters.outcome}}"
-                - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.covariates}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
                 - name: n_pcs
@@ -261,9 +261,13 @@ spec:
                   value: "{{inputs.parameters.imputation_score_cutoff}}"
                 - name: hare_population
                   value: "{{inputs.parameters.hare_population}}"
+              artifacts:
+                - name: variables_json
+                  from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
 
           - name: generate-attrition-csv
             template: get-attrition-csv
+            dependencies: [process-variables]
             arguments:
               parameters:
                 - name: source_id
@@ -272,14 +276,13 @@ spec:
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
                 - name: control_cohort_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
-                - name: prefixed_outcome_concept_id
-                  value: "{{inputs.parameters.outcome}}"
-                - name: prefixed_breakdown_concept_id 
-                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
-                - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.covariates}}"
+                - name: breakdown_concept_id 
+                  value: "{{inputs.parameters.hare_concept_id}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
+              artifacts:
+                - name: variables_json
+                  from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
 
           - name: archive-outputs
             template: run-tar
@@ -1021,33 +1024,33 @@ spec:
           - name: source_id
           - name: case_cohort_id
           - name: control_cohort_id
-          - name: prefixed_outcome_concept_id
-          - name: prefixed_concept_ids
+          - name: outcome_concept_id
           - name: internal_api_env
           - name: n_pcs
           - name: maf_threshold
           - name: imputation_score_cutoff
           - name: hare_population
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.0
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
           if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
-              CONCEPT_IDS="{{inputs.parameters.prefixed_outcome_concept_id}} {{inputs.parameters.prefixed_concept_ids}}"
-              OUTCOME_ID=" --prefixed_outcome_concept_id {{inputs.parameters.prefixed_outcome_concept_id}}"
+              OUTCOME_ID=" --outcome_concept_id {{inputs.parameters.outcome_concept_id}}"
           else
-              CONCEPT_IDS="{{inputs.parameters.prefixed_concept_ids}}"
               OUTCOME_ID=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
           fi
 
           /env/bin/vadc-gwas-tools GetGwasMetadata \
           --source_id {{inputs.parameters.source_id}} \
-          --case_cohort_id {{inputs.parameters.case_cohort_id}} \
-          --prefixed_concept_ids ${CONCEPT_IDS}${OUTCOME_ID} \
+          --case_cohort_id {{inputs.parameters.case_cohort_id}}${OUTCOME_ID} \
+          --variables_json {{inputs.artifacts.variables_json.path}} \
           --n_pcs {{inputs.parameters.n_pcs}} \
           --maf_threshold {{inputs.parameters.maf_threshold}} \
           --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
@@ -1075,25 +1078,23 @@ spec:
           - name: source_id
           - name: case_cohort_id
           - name: control_cohort_id
-          - name: prefixed_outcome_concept_id
-          - name: prefixed_concept_ids
-          - name: prefixed_breakdown_concept_id
+          - name: breakdown_concept_id
           - name: internal_api_env
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.0
         imagePullPolicy: Always
-        command: [/bin/bash]
+        command: ["/bin/bash"]
         source: |
-          mkdir -p /mnt/vol/attrition_csvs
-
+          mkdir /mnt/vol/attrition_csvs
           if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
-              CONCEPT_IDS="{{inputs.parameters.prefixed_outcome_concept_id}} {{inputs.parameters.prefixed_concept_ids}}"
               CONTROL_COHORT=""
           else
-              CONCEPT_IDS="{{inputs.parameters.prefixed_concept_ids}}"
               CONTROL_COHORT=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
           fi
 
@@ -1101,8 +1102,8 @@ spec:
           --source_id {{inputs.parameters.source_id}} \
           --case_cohort_id {{inputs.parameters.case_cohort_id}}${CONTROL_COHORT} \
           --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}} \
-          --prefixed_concept_ids ${CONCEPT_IDS} \
-          --prefixed_breakdown_concept_id {{inputs.parameters.prefixed_breakdown_concept_id}}
+          --variables_json {{inputs.artifacts.variables_json.path}} \
+          --prefixed_breakdown_concept_id {{inputs.parameters.breakdown_concept_id}}
 
         volumeMounts:
           - name: workdir
