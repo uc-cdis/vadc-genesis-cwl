@@ -60,8 +60,8 @@ spec:
                 - name: variables
                   value: "{{inputs.parameters.variables}}"
 
-          - name: get-pheno-csv-flow
-            template: get-pheno-dag
+          - name: get-pheno-csv
+            template: get-cohort-middleware-pheno-csv
             arguments:
               parameters:
                 - name: source_id
@@ -70,14 +70,11 @@ spec:
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
                 - name: control_cohort_definition_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
-                - name: prefixed_hare_concept_id 
-                  value: "{{inputs.parameters.prefixed_hare_concept_id}}"
-                - name: outcome
-                  value: "{{inputs.parameters.outcome}}"
-                - name: covariates
-                  value: "{{inputs.parameters.covariates}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
+              artifacts:
+                - name: variables_json
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_with_hare_json}}"
 
           - name: generate-pheno
             template: generate-pheno
@@ -371,114 +368,33 @@ spec:
             s3:
               key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.variables_with_hare.json"
 
-    - name: get-pheno-dag
-      inputs:
-        parameters:
-          - name: internal_api_env
-          - name: source_id
-          - name: case_cohort_definition_id
-          - name: control_cohort_definition_id
-          - name: prefixed_hare_concept_id
-          - name: outcome
-          - name: covariates
-      dag:
-        tasks:
-          - name: get-quantitative-pheno-csv
-            template: get-cohort-middleware-csv-continuous
-            arguments:
-              parameters:
-                - name: source_id
-                  value: "{{inputs.parameters.source_id}}"
-                - name: case_cohort_id
-                  value: "{{inputs.parameters.case_cohort_definition_id}}"
-                - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.outcome}} {{inputs.parameters.covariates}} {{inputs.parameters.prefixed_hare_concept_id}}"
-                - name: gen3environment
-                  value: "{{inputs.parameters.internal_api_env}}"
-            when: "{{inputs.parameters.control_cohort_definition_id}} == -1"
-
-          - name: get-case-control-pheno-csv
-            template: get-cohort-middleware-csv-case-control
-            arguments:
-              parameters:
-                - name: source_id
-                  value: "{{inputs.parameters.source_id}}"
-                - name: case_cohort_id
-                  value: "{{inputs.parameters.case_cohort_definition_id}}"
-                - name: control_cohort_id
-                  value: "{{inputs.parameters.control_cohort_definition_id}}"
-                - name: prefixed_concept_ids
-                  value: "{{inputs.parameters.covariates}} {{inputs.parameters.prefixed_hare_concept_id}}"
-                - name: gen3environment
-                  value: "{{inputs.parameters.internal_api_env}}"
-            when: "{{inputs.parameters.control_cohort_definition_id}} != -1"
-      outputs:
-        artifacts:
-          - name: pheno_csv
-            fromExpression: "inputs.parameters.control_cohort_definition_id == '-1' ? tasks['get-quantitative-pheno-csv'].outputs.artifacts.pheno_csv : tasks['get-case-control-pheno-csv'].outputs.artifacts.pheno_csv"
-
-    - name: get-cohort-middleware-csv-continuous
-      inputs:
-        parameters:
-          - name: source_id
-          - name: case_cohort_id
-          - name: prefixed_concept_ids
-          - name: gen3environment
-      retryStrategy:
-        limit: "3"
-        retryPolicy: "Always"
-      container:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
-        imagePullPolicy: Always
-        command: ["/bin/bash", "-c"]
-        args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
-          --case_cohort_id {{inputs.parameters.case_cohort_id}} \
-          -o /mnt/vol/pheno.csv.gz \
-          --prefixed_concept_ids {{inputs.parameters.prefixed_concept_ids}}
-        "]
-        volumeMounts:
-          - name: workdir
-            mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 500m
-            memory: 500Mi
-          limits:
-            cpu: 1000m
-            memory: 1Gi
-        env:
-          - name: GEN3_ENVIRONMENT
-            value: "{{inputs.parameters.gen3environment}}"
-      outputs:
-        artifacts:
-          - name: pheno_csv
-            path: /mnt/vol/pheno.csv.gz
-            archive:
-              none: {}
-            s3:
-              key: "{{workflow.name}}/{{pod.name}}/pheno.csv.gz"
-
-    - name: get-cohort-middleware-csv-case-control
+    - name: get-cohort-middleware-pheno-csv
       inputs:
         parameters:
           - name: source_id
           - name: case_cohort_id
           - name: control_cohort_id
-          - name: prefixed_concept_ids
-          - name: gen3environment
-      retryStrategy:
-        limit: "3"
-        retryPolicy: "Always"
-      container:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+          - name: internal_api_env
+        artifacts:
+          - name: variables_json
+            path: "/mnt/vol/variables.json"
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:0.2.0
         imagePullPolicy: Always
-        command: ["/bin/bash", "-c"]
-        args: ["/env/bin/vadc-gwas-tools GetCohortPheno --source_id {{inputs.parameters.source_id}} \
-          --case_cohort_id {{inputs.parameters.case_cohort_id}} \
-          --control_cohort_id {{inputs.parameters.control_cohort_id}} \
-          -o /mnt/vol/pheno.csv.gz \
-          --prefixed_concept_ids {{inputs.parameters.prefixed_concept_ids}}
-        "]
+        command: [/bin/bash]
+        source: |
+          if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
+              CONTROL_COHORT=""
+          else
+              CONTROL_COHORT=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
+          fi
+
+          /env/bin/vadc-gwas-tools GetCohortPheno \
+          --source_id {{inputs.parameters.source_id}} \
+          --case_cohort_id {{inputs.parameters.case_cohort_id}}${CONTROL_COHORT} \
+          --variables_json {{inputs.artifacts.variables_json.path}} \
+          --output /mnt/vol/{{workflow.name}}.pheno.csv.gz
+
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -491,15 +407,15 @@ spec:
             memory: 1Gi
         env:
           - name: GEN3_ENVIRONMENT
-            value: "{{inputs.parameters.gen3environment}}"
+            value: "{{inputs.parameters.internal_api_env}}"
       outputs:
         artifacts:
           - name: pheno_csv
-            path: /mnt/vol/pheno.csv.gz
+            path: /mnt/vol/{{workflow.name}}.pheno.csv.gz
             archive:
               none: {}
             s3:
-              key: "{{workflow.name}}/{{pod.name}}/pheno.csv.gz"
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.pheno.csv.gz"
 
     - name: generate-pheno
       inputs:
