@@ -15,12 +15,12 @@ spec:
           - name: case_cohort_definition_id
           - name: control_cohort_definition_id
             default: -1
-          - name: prefixed_hare_concept_id
-            default: ID_2000007027
+          - name: hare_concept_id
+            default: 2000007027
           - name: hare_population
           - name: n_pcs
             default: 0
-          - name: covariates
+          - name: variables
           - name: out_prefix
             value: vadc_genesis
           - name: outcome
@@ -47,6 +47,19 @@ spec:
 
       dag:
         tasks:
+          - name: process-variables
+            template: get-variable-json
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+                - name: variables
+                  value: "{{inputs.parameters.variables}}"
+
           - name: get-pheno-csv-flow
             template: get-pheno-dag
             arguments:
@@ -303,6 +316,60 @@ spec:
               artifacts:
                 - name: gwas_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
+
+    - name: get-variable-json
+      inputs:
+        parameters:
+          - name: variables
+          - name: hare_concept_id
+          - name: outcome
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        command: [sh]
+        source: |
+          echo '{{inputs.parameters.variables}}' | jq . > /mnt/vol/raw_variables.json
+          echo '{{inputs.parameters.variables}}' | jq '. += [{"variable_type": "concept", "concept_id": {{inputs.parameters.hare_concept_id}} }]' > /mnt/vol/variables_with_hare.json
+
+          CONCEPT_VARS=""
+
+          if [ "{{inputs.parameters.outcome}}" = "-1" ]; then
+                  CONCEPT_VARS=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .concept_id != null ) | ["ID_\(.concept_id)"]' | jq -rs 'flatten(1) | join(" ")'`
+          else
+                  CONCEPT_VARS=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .concept_id != null and .concept_id != {{inputs.parameters.outcome}} ) | ["ID_\(.concept_id)"]' | jq -rs 'flatten(1) | join(" ")'`
+          fi
+
+          DICHOTOMOUS_VARS=""
+          CURR=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .variable_type == "custom_dichotomous" ) | .cohort_ids | map(tostring) | join("_") | "ID_\(.)"' | jq -rs 'flatten(1) | join(" ")'`
+          if [ -z $CURR ]; then
+                  DICHOTOMOUS_VARS=""
+          elif [ -z $CONCEPT_VARS ]; then
+                  DICHOTOMOUS_VARS="${CURR}"
+          else
+                  DICHOTOMOUS_VARS=" ${CURR}"
+          fi
+
+          echo -n "${CONCEPT_VARS}${DICHOTOMOUS_VARS}" > /mnt/vol/covariate_string.txt
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: covariates
+            valueFrom:
+                path: /mnt/vol/covariate_string.txt
+        artifacts:
+          - name: raw_variables_json
+            path: /mnt/vol/raw_variables.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.raw_variables.json"
+          - name: variables_with_hare_json
+            path: /mnt/vol/variables_with_hare.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.variables_with_hare.json"
 
     - name: get-pheno-dag
       inputs:
