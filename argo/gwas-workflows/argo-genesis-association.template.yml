@@ -67,9 +67,9 @@ spec:
               parameters:
                 - name: source_id
                   value: "{{inputs.parameters.source_id}}"
-                - name: case_cohort_definition_id
+                - name: case_cohort_id
                   value: "{{inputs.parameters.case_cohort_definition_id}}"
-                - name: control_cohort_definition_id
+                - name: control_cohort_id
                   value: "{{inputs.parameters.control_cohort_definition_id}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
