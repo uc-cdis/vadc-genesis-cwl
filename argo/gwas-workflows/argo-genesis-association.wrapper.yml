@@ -35,16 +35,21 @@ spec:
       - name: control_cohort_definition_id
         value: -1
       - name: hare_population
-        value: "non-hispanic White"
+        value: "non-Hispanic White"
       - name: n_pcs
         default: 0
         value: 3
-      - name: covariates
-        value: ID_2000006886 ID_2000000324
+      - name: variables
+        value: |
+          [
+            {"variable_type": "concept", "concept_id": 2000006885},
+            {"variable_type": "concept", "concept_id": 2000006886},
+            {"variable_type": "concept", "concept_id": 2000000324}
+          ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
-        value: ID_2000006885
+        value: 2000006885
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -98,7 +103,7 @@ spec:
   volumes:
     - name: gateway
       persistentVolumeClaim:
-        claimName: va-input-nfs-pvc
+        claimName: parallel-test-pvc
     - name: workdir
       emptyDir:
         sizeLimit: "10Gi"

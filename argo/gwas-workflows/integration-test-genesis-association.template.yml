@@ -8,6 +8,8 @@ spec:
   - name: gwas-workflow
     inputs:
       parameters:
+        - name: internal_api_env
+          default: "qa-mickey"
         - name: source_id
         - name: case_cohort_definition_id
         - name: control_cohort_definition_id
@@ -15,20 +17,31 @@ spec:
         - name: hare_concept_id
           default: 2000007027
         - name: hare_population
-        - name: internal_api_env
-          value: "qa-mickey"
-        - name: variables 
-        - name: out_prefix
-          default: vadc_genesis
-        - name: outcome
-          default: -1
         - name: n_pcs
           default: 0
+        - name: variables
+        - name: out_prefix
+          value: vadc_genesis
+        - name: outcome
+          default: -1
+        - name: pca_file
+        - name: relatedness_matrix_file
+        - name: genome_build
+          enum:
+            - "hg38"
+            - "hg19"
+          default: "hg19"
+        - name: n_segments
+          default: 0
+        - name: segment_length
+          default: 10000
+        - name: variant_block_size
+          default: 1024
         - name: mac_threshold
         - name: maf_threshold
           default: 0.01
         - name: imputation_score_cutoff
-          default: 0.3
+          default: 0.03
         - name: gds_files
     dag:
       tasks:
