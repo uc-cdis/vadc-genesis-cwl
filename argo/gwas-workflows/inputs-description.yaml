@@ -18,21 +18,25 @@ inputs:
         case-control phenotype, then provide the control cohort's ID here. If it is
         a quantitative phenotype, set this value to '-1' as the indicator of null.
       default: -1
+    - name: hare_concept_id
+      description: |
+        The OMOP concept ID for HARE observations.
+      default: 2000007027
     - name: hare_population
       description: |
         The name of the HARE population selected by the user to filter by.
     - name: n_pcs
       description: The number of population PCs to use as covariates.
       default: 0
-    - name: covariates
+    - name: variables
       description: |
-        A space-delimited list of prefixed concept IDs to use as covariates in the model.
+        A JSON array of variable definitions as defined by cohort middleware.
     - name: out_prefix
       description: Prefix used on all outputs.
       value: vadc_genesis
     - name: outcome
       description: |
-        The prefixed concept ID for the outcome/phenotype. If this is a case-control
+        The concept ID for the outcome/phenotype. If this is a case-control
         study, set this to '-1' to indicate null.
       default: -1
     - name: pca_file
