@@ -323,6 +323,9 @@ spec:
           - name: variables
           - name: hare_concept_id
           - name: outcome
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: quay.io/cdis/alpine-jq:latest
         command: [sh]
@@ -381,6 +384,9 @@ spec:
         artifacts:
           - name: variables_json
             path: "/mnt/vol/variables.json"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: quay.io/cdis/vadc-gwas-tools:0.2.0
         imagePullPolicy: Always
@@ -1185,6 +1191,9 @@ spec:
         artifacts:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.tar.gz"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.1.0
         imagePullPolicy: Always
