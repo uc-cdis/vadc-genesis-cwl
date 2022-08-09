@@ -388,7 +388,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -577,7 +577,12 @@ spec:
           echo "n_pcs {{inputs.parameters.n_pcs}}" >> null_model.config
           echo "pca_file {{inputs.parameters.pca_file}}" >> null_model.config
           echo "relatedness_matrix_file {{inputs.parameters.relatedness_matrix_file}}" >> null_model.config
-          echo "covars \"{{inputs.parameters.covariates}}\"" >> null_model.config
+
+          if [[ -z "{{inputs.parameters.covariates}}" ]]; then
+              echo "No covariates provided."
+          else
+              echo "covars \"{{inputs.parameters.covariates}}\"" >> null_model.config
+          fi
           echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> null_model.config
 
           set -xe
@@ -689,7 +694,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -716,7 +721,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1043,7 +1048,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -1093,7 +1098,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: ["/bin/bash"]
         source: |
@@ -1195,7 +1200,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.1.0
+        image: quay.io/cdis/vadc-gwas-tools:0.2.1
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \

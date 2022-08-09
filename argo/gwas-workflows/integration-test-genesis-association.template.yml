@@ -218,7 +218,7 @@ spec:
         - name: variables_json
           path: "/mnt/vol/variables.json"
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.0
+      image: quay.io/cdis/vadc-gwas-tools:0.2.1
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -316,7 +316,7 @@ spec:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.0
+      image: quay.io/cdis/vadc-gwas-tools:0.2.1
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -363,7 +363,7 @@ spec:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.0
+      image: quay.io/cdis/vadc-gwas-tools:0.2.1
       imagePullPolicy: Always
       command: ["/bin/bash"]
       source: |
@@ -454,7 +454,7 @@ spec:
         - name: gwas_archive
           path: "/mnt/vol/{{workflow.name}}.tar.gz"
     container:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.0
+      image: quay.io/cdis/vadc-gwas-tools:0.2.1
       imagePullPolicy: Always
       command: ["/bin/bash", "-c"]
       args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
