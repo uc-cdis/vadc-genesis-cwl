@@ -28,7 +28,7 @@ spec:
       - name: control_cohort_definition_id
         value: -1
       - name: hare_population
-        value: ASN
+        value: "non-hispanic Asian"
       - name: n_pcs
         default: 0
         value: 3
@@ -67,6 +67,12 @@ spec:
         value: 0.01
       - name: imputation_score_cutoff
         value: 0.3
+      - name: pvalue_cutoff
+        default: 5e-8
+        value: 5e-8
+      - name: top_n_hits
+        default: 100
+        value: 100
       - name: gds_files
         value: |-
           [
