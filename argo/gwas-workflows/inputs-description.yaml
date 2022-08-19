@@ -74,5 +74,11 @@ inputs:
     - name: imputation_score_cutoff
       description: Filter markers based on imputation score.
       default: 0.03
+    - name: pvalue_cutoff
+      description: The p-value cutoff will be used to subset the GWAS summary statistics.
+      default: 5e-8
+    - name: top_n_hits
+      description: This int will be used to subset GWAS summary statistics to top N hits based on p-value.
+      default: 100
     - name: gds_files
       description: A stringified JSON array of GDS paths on the gateway mount.
