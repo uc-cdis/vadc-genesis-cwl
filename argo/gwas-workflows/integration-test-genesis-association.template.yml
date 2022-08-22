@@ -42,6 +42,10 @@ spec:
           default: 0.01
         - name: imputation_score_cutoff
           default: 0.03
+        - name: top_n_hits
+          default: 100
+        - name: pvalue_cutoff
+          default: 5e-8
         - name: gds_files
     dag:
       tasks:
@@ -106,6 +110,10 @@ spec:
                 value: "{{inputs.parameters.imputation_score_cutoff}}"
               - name: hare_population
                 value: "{{inputs.parameters.hare_population}}"
+              - name: pvalue_cutoff
+                value: "{{inputs.parameters.pvalue_cutoff}}"
+              - name: top_n_hits
+                value: "{{inputs.parameers.top_n_hits}}"
             artifacts:
               - name: variables_json
                 from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
@@ -218,7 +226,7 @@ spec:
         - name: variables_json
           path: "/mnt/vol/variables.json"
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.1
+      image: quay.io/cdis/vadc-gwas-tools:0.2.3
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -312,11 +320,13 @@ spec:
         - name: maf_threshold
         - name: imputation_score_cutoff
         - name: hare_population
+        - name: pvalue_cutoff
+        - name: top_n_hits
       artifacts:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.1
+      image: quay.io/cdis/vadc-gwas-tools:0.2.3
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -334,6 +344,8 @@ spec:
         --maf_threshold {{inputs.parameters.maf_threshold}} \
         --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
         --hare_population "{{inputs.parameters.hare_population}}" \
+        --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
+        --top_n_hits {{inputs.parameters.top_n_hits}} \
         --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
 
       volumeMounts:
@@ -363,7 +375,7 @@ spec:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.1
+      image: quay.io/cdis/vadc-gwas-tools:0.2.3
       imagePullPolicy: Always
       command: ["/bin/bash"]
       source: |
@@ -454,7 +466,7 @@ spec:
         - name: gwas_archive
           path: "/mnt/vol/{{workflow.name}}.tar.gz"
     container:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.1
+      image: quay.io/cdis/vadc-gwas-tools:0.2.3
       imagePullPolicy: Always
       command: ["/bin/bash", "-c"]
       args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \

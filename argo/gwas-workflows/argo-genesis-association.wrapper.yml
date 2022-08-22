@@ -74,6 +74,12 @@ spec:
         value: 0.01
       - name: imputation_score_cutoff
         value: 0.3
+      - name: top_n_hits
+        default: 100
+        value: 100
+      - name: pvalue_cutoff
+        default: 5e-8
+        value: 5e-8
       - name: gds_files
         value: |-
           [

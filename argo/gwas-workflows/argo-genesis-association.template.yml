@@ -43,6 +43,10 @@ spec:
             default: 0.01
           - name: imputation_score_cutoff
             default: 0.03
+          - name: pvalue_cutoff
+            default: 5e-8
+          - name: top_n_hits
+            default: 100
           - name: gds_files
 
       dag:
@@ -238,6 +242,22 @@ spec:
                     key: "{{workflow.name}}/single_assoc_combined/{{inputs.parameters.out_prefix}}_chr{{item}}.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
 
+          - name: curate-gwas-hits
+            template: curate-hits
+            dependencies: [annotate-statistics]
+            arguments:
+              parameters:
+                - name: pvalue_cutoff
+                  value: "{{inputs.parameters.pvalue_cutoff}}"
+                - name: top_n_hits
+                  value: "{{inputs.parameters.top_n_hits}}"
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+              artifacts:
+                - name: annotated_stats_dir
+                  s3:
+                    key: "{{workflow.name}}/annotated_csvs"
+
           - name: generate-gwas-metadata
             template: get-gwas-metadata
             dependencies: [process-variables]
@@ -261,6 +281,10 @@ spec:
                   value: "{{inputs.parameters.imputation_score_cutoff}}"
                 - name: hare_population
                   value: "{{inputs.parameters.hare_population}}"
+                - name: pvalue_cutoff
+                  value: "{{inputs.parameters.pvalue_cutoff}}"
+                - name: top_n_hits
+                  value: "{{inputs.parameters.top_n_hits}}"
               artifacts:
                 - name: variables_json
                   from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
@@ -286,7 +310,7 @@ spec:
 
           - name: archive-outputs
             template: run-tar
-            dependencies: [run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv]
+            dependencies: [run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv, curate-gwas-hits]
             arguments:
               parameters:
                 - name: out_prefix
@@ -303,6 +327,10 @@ spec:
                   from: "{{tasks.generate-gwas-metadata.outputs.artifacts.gwas_metadata}}"
                 - name: attrition_csvs
                   from: "{{tasks.generate-attrition-csv.outputs.artifacts.attrition_table_directory}}"
+                - name: top_hits_csv
+                  from: "{{tasks.curate-gwas-hits.outputs.artifacts.top_hits_csv}}"
+                - name: below_cutoff_csv
+                  from: "{{tasks.curate-gwas-hits.outputs.artifacts.below_cutoff_csv}}"
 
           - name: create-indexd-record
             template: create-indexd-record
@@ -388,7 +416,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -694,7 +722,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -721,7 +749,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1029,6 +1057,55 @@ spec:
             s3:
               key: "{{workflow.name}}/annotated_csvs/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"
 
+    - name: curate-hits
+      inputs:
+        parameters:
+          - name: pvalue_cutoff
+          - name: top_n_hits
+          - name: out_prefix
+        artifacts:
+          - name: annotated_stats_dir
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/annotated_summary_csvs"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools CurateGwasHits \
+          --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
+          --top_n_hits {{inputs.parameters.top_n_hits}} \
+          --summary_stats_dir {{inputs.artifacts.annotated_stats_dir.path}} \
+          --out_prefix /mnt/vol/{{inputs.parameters.out_prefix}}
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: 500m
+            memory: 4Gi
+      outputs:
+        artifacts:
+          - name: top_hits_csv
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.top_{{inputs.parameters.top_n_hits}}_hits.csv.gz
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}.top_{{inputs.parameters.top_n_hits}}_hits.csv.gz"
+          - name: below_cutoff_csv
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz"
+
     - name: get-gwas-metadata
       inputs:
         parameters:
@@ -1041,6 +1118,8 @@ spec:
           - name: maf_threshold
           - name: imputation_score_cutoff
           - name: hare_population
+          - name: pvalue_cutoff
+          - name: top_n_hits
         artifacts:
           - name: variables_json
             path: /mnt/vol/variables.json
@@ -1048,7 +1127,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -1066,6 +1145,8 @@ spec:
           --maf_threshold {{inputs.parameters.maf_threshold}} \
           --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
           --hare_population "{{inputs.parameters.hare_population}}" \
+          --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
+          --top_n_hits {{inputs.parameters.top_n_hits}} \
           --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
 
         volumeMounts:
@@ -1098,7 +1179,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: ["/bin/bash"]
         source: |
@@ -1148,6 +1229,12 @@ spec:
           - name: attrition_csvs
             mode: 0777
             path: "/mnt/vol/{{workflow.name}}/attrition_tables"
+          - name: top_hits_csv
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}.top_hits.csv.gz"
+          - name: below_cutoff_csv
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1200,7 +1287,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.1
+        image: quay.io/cdis/vadc-gwas-tools:0.2.3
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
