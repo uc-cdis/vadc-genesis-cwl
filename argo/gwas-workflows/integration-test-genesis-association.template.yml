@@ -113,7 +113,7 @@ spec:
               - name: pvalue_cutoff
                 value: "{{inputs.parameters.pvalue_cutoff}}"
               - name: top_n_hits
-                value: "{{inputs.parameers.top_n_hits}}"
+                value: "{{inputs.parameters.top_n_hits}}"
             artifacts:
               - name: variables_json
                 from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
@@ -226,7 +226,7 @@ spec:
         - name: variables_json
           path: "/mnt/vol/variables.json"
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.3
+      image: quay.io/cdis/vadc-gwas-tools:0.2.4
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -326,7 +326,7 @@ spec:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.3
+      image: quay.io/cdis/vadc-gwas-tools:0.2.4
       imagePullPolicy: Always
       command: [/bin/bash]
       source: |
@@ -375,7 +375,7 @@ spec:
         - name: variables_json
           path: /mnt/vol/variables.json
     script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.3
+      image: quay.io/cdis/vadc-gwas-tools:0.2.4
       imagePullPolicy: Always
       command: ["/bin/bash"]
       source: |
@@ -466,7 +466,7 @@ spec:
         - name: gwas_archive
           path: "/mnt/vol/{{workflow.name}}.tar.gz"
     container:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.3
+      image: quay.io/cdis/vadc-gwas-tools:0.2.4
       imagePullPolicy: Always
       command: ["/bin/bash", "-c"]
       args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \

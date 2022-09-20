@@ -11,7 +11,7 @@ metadata:
 spec:
   entrypoint: gwas-workflow
   podGC:
-    strategy: OnWorkflowSuccess
+    strategy: OnPodSuccess
   podMetadata:
     labels:
       gen3username: "user-kmhernan-40uchicago-2eedu"
