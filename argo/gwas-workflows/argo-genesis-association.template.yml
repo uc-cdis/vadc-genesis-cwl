@@ -416,7 +416,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -722,7 +722,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -749,7 +749,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1071,7 +1071,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -1127,7 +1127,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -1179,7 +1179,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: ["/bin/bash"]
         source: |
@@ -1287,7 +1287,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:0.2.3
+        image: quay.io/cdis/vadc-gwas-tools:0.2.4
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
