@@ -1,0 +1,108 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: gwas-integration-test-wrapper-
+  namespace: argo
+  annotations:
+    workflows.argoproj.io/version: ">= 3.1.0"
+  labels:
+    workflows.argoproj.io/archive-strategy: "true"
+    gen3username: "user-qiongl-40uchicago-2eedu"
+spec:
+  entrypoint: gwas-workflow
+  podGC:
+    strategy: OnPodSuccess
+  podMetadata:
+    labels:
+      gen3username: "user-qiongl-40uchicago-2eedu"
+    annotations:
+      gen3username: "qiongl@uchicago.edu"
+
+  arguments:
+    parameters:
+      - name: internal_api_env
+        value: qa-mickey
+      - name: source_id
+        value: 2
+      - name: study_population_cohort
+        value: 0
+      - name: hare_population
+        value: "non-hispanic Asian"
+      - name: n_pcs
+        default: 0
+        value: 3
+      - name: variables
+        value: |
+          [
+            {"variable_type": "concept", "concept_id": 2000006886},
+            {"variable_type": "concept", "concept_id": 2000006885},
+            {"variable_type": "custom_dichotomous", "cohort_ids": [301, 401], "provided_name": "test123"},
+            {"variable_type": "custom_dichotomous", "cohort_ids": [1, 99], "provided_name": "test456"}
+          ]
+      - name: out_prefix
+        value: vadc_genesis
+      - name: outcome
+        value: |
+          {"variable_type": "custom_dichotomous", "cohort_ids": [301, 401], "provided_name": "test123"}
+      - name: pca_file
+        value: /commons-data/pcs.RData
+      - name: relatedness_matrix_file
+        value: /commons-data/KINGmatDeg3.RData
+      - name: genome_build
+        enum:
+          - "hg38"
+          - "hg19"
+        default: "hg19"
+        value: "hg19"
+      - name: n_segments
+        value: 0
+      - name: segment_length
+        default: 10000
+        value: 2000
+      - name: variant_block_size
+        default: 1024
+        value: 100
+      - name: mac_threshold
+        value: 0
+      - name: maf_threshold
+        value: 0.01
+      - name: imputation_score_cutoff
+        value: 0.3
+      - name: pvalue_cutoff
+        default: 5e-8
+        value: 5e-8
+      - name: top_n_hits
+        default: 100
+        value: 100
+      - name: gds_files
+        value: |-
+          [
+            "/commons-data/gds/chr1.merged.vcf.gz.gds",
+            "/commons-data/gds/chr2.merged.vcf.gz.gds",
+            "/commons-data/gds/chr3.merged.vcf.gz.gds",
+            "/commons-data/gds/chr4.merged.vcf.gz.gds",
+            "/commons-data/gds/chr5.merged.vcf.gz.gds",
+            "/commons-data/gds/chr6.merged.vcf.gz.gds",
+            "/commons-data/gds/chr7.merged.vcf.gz.gds",
+            "/commons-data/gds/chr8.merged.vcf.gz.gds",
+            "/commons-data/gds/chr9.merged.vcf.gz.gds",
+            "/commons-data/gds/chr10.merged.vcf.gz.gds",
+            "/commons-data/gds/chr11.merged.vcf.gz.gds",
+            "/commons-data/gds/chr12.merged.vcf.gz.gds",
+            "/commons-data/gds/chr13.merged.vcf.gz.gds",
+            "/commons-data/gds/chr14.merged.vcf.gz.gds",
+            "/commons-data/gds/chr15.merged.vcf.gz.gds",
+            "/commons-data/gds/chr16.merged.vcf.gz.gds",
+            "/commons-data/gds/chr17.merged.vcf.gz.gds",
+            "/commons-data/gds/chr18.merged.vcf.gz.gds",
+            "/commons-data/gds/chr19.merged.vcf.gz.gds",
+            "/commons-data/gds/chr20.merged.vcf.gz.gds",
+            "/commons-data/gds/chr21.merged.vcf.gz.gds",
+            "/commons-data/gds/chr22.merged.vcf.gz.gds"
+          ]
+  volumes:
+    - name: workdir
+      emptyDir:
+        sizeLimit: "3Gi"
+  workflowTemplateRef:
+    name: gwas-template-integration-test-uniflow-input
