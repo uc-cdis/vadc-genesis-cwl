@@ -33,7 +33,7 @@ spec:
           - name: maf_threshold
             default: 0.01
           - name: imputation_score_cutoff
-            default: 0.03
+            default: 0.03vzpgb-patch-1
           - name: gds_files
           - name: phenotype_csv
 
@@ -170,8 +170,7 @@ spec:
       inputs:
         artifacts:
           - name: pheno_csv
-            mode: 0777
-            path: "/mnt/vol/phenotypes.csv.gz"
+            path: "/mnt/vol/phenotypes.csv"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -182,7 +181,7 @@ spec:
         source: |
           library(Biobase)
 
-          dat.csv <- read.csv(gzfile("{{inputs.artifacts.pheno_csv.path}}"),
+          dat.csv <- read.csv("{{inputs.artifacts.pheno_csv.path}}",
                               stringsAsFactors=FALSE, na.strings=c("NA", ""))
           stopifnot("sample.id" %in% names(dat.csv))
           dat.csv$sample.id <- as.character(dat.csv$sample.id)
@@ -213,6 +212,9 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
+      securityContext:
+        runAsUser: 2049
+        runAsNonRoot: true
 
     - name: impute-score-filter
       inputs:
@@ -284,7 +286,6 @@ spec:
           - name: relatedness_matrix_file
         artifacts:
           - name: phenotype_file
-            mode: 0777
             path: "/mnt/vol/phenotypes.Rdata"
       retryStrategy:
         limit: "3"
@@ -368,6 +369,10 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}_reports"
+
+      securityContext:
+        runAsUser: 2049
+        runAsNonRoot: true
 
     - name: define-segments
       inputs:
@@ -489,16 +494,12 @@ spec:
           - name: outcome_is_binary
         artifacts:
           - name: segment_file
-            mode: 0777
             path: "/mnt/vol/segments.txt"
           - name: null_model_results
-            mode: 0777
             path: "/mnt/vol/null_model_results"
           - name: phenotype_file
-            mode: 0777
             path: "/mnt/vol/phenotypes.RData"
           - name: variant_list_dir
-            mode: 0777
             path: "/mnt/vol/variant_lists"
       retryStrategy:
         limit: "5"
@@ -507,8 +508,6 @@ spec:
       script:
         image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
-        securityContext:
-          runAsUser: 0
         command: [bash]
         source: |
           cd /mnt/vol
@@ -578,6 +577,9 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/single_assoc_chunks"
+      securityContext:
+        runAsUser: 2049
+        runAsNonRoot: true
 
     - name: combine-shards
       inputs:
@@ -586,7 +588,6 @@ spec:
           - name: out_prefix
         artifacts:
           - name: file_shards
-            mode: 0777
             path: "/mnt/vol/file_shards"
       retryStrategy:
         limit: "4"
@@ -595,8 +596,6 @@ spec:
       script:
         image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
-        securityContext:
-          runAsUser: 0
         command: [bash]
         source: |
           cd {{inputs.artifacts.file_shards.path}}
@@ -633,3 +632,6 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/single_assoc_combined"
+      securityContext:
+        runAsUser: 2049
+        runAsNonRoot: true
