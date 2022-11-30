@@ -33,7 +33,7 @@ spec:
           - name: maf_threshold
             default: 0.01
           - name: imputation_score_cutoff
-            default: 0.03vzpgb-patch-1
+            default: 0.03
           - name: gds_files
           - name: phenotype_csv
 
