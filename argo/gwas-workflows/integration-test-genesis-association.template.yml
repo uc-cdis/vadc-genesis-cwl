@@ -5,501 +5,490 @@ metadata:
 spec:
   entrypoint: gwas-workflow
   templates:
-  - name: gwas-workflow
-    inputs:
-      parameters:
-        - name: internal_api_env
-          default: "qa-mickey"
-        - name: source_id
-        - name: case_cohort_definition_id
-        - name: control_cohort_definition_id
-          default: -1
-        - name: hare_concept_id
-          default: 2000007027
-        - name: hare_population
-        - name: n_pcs
-          default: 0
-        - name: variables
-        - name: out_prefix
-          value: vadc_genesis
-        - name: outcome
-          default: -1
-        - name: pca_file
-        - name: relatedness_matrix_file
-        - name: genome_build
-          enum:
-            - "hg38"
-            - "hg19"
-          default: "hg19"
-        - name: n_segments
-          default: 0
-        - name: segment_length
-          default: 10000
-        - name: variant_block_size
-          default: 1024
-        - name: mac_threshold
-        - name: maf_threshold
-          default: 0.01
-        - name: imputation_score_cutoff
-          default: 0.03
-        - name: top_n_hits
-          default: 100
-        - name: pvalue_cutoff
-          default: 5e-8
-        - name: gds_files
-    dag:
-      tasks:
-        - name: process-variables
-          template: get-variable-json
-          arguments:
-            parameters:
-              - name: variables
-                value: "{{inputs.parameters.variables}}"
-              - name: hare_concept_id
-                value: "{{inputs.parameters.hare_concept_id}}"
-              - name: outcome
-                value: "{{inputs.parameters.outcome}}"
-        - name: get-pheno-csv
-          template: gwas-pheno
-          dependencies: [process-variables]
-          arguments:
-            parameters:
-              - name: source_id
-                value: "{{inputs.parameters.source_id}}"
-              - name: case_cohort_id
-                value: "{{inputs.parameters.case_cohort_definition_id}}"
-              - name: control_cohort_id
-                value: "{{inputs.parameters.control_cohort_definition_id}}"
-              - name: internal_api_env
-                value: "{{inputs.parameters.internal_api_env}}"
-            artifacts:
-              - name: variables_json
-                from: "{{tasks.process-variables.outputs.artifacts.variables_with_hare_json}}"
-        - name: generate-pheno
-          template: generate-pheno
-          dependencies: [get-pheno-csv]
-          arguments:
-            parameters:
-              - name: prefixed_hare_concept_id
-                value: "ID_{{inputs.parameters.hare_concept_id}}"
-              - name: hare_population
-                value: "{{inputs.parameters.hare_population}}"
-            artifacts:
-              - name: pheno_csv
-                from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
-        - name: get-gwas-metadata
-          template: gwas-metadata
-          dependencies: [process-variables]
-          arguments:
-            parameters:
-              - name: source_id
-                value: "{{inputs.parameters.source_id}}"
-              - name: case_cohort_id
-                value: "{{inputs.parameters.case_cohort_definition_id}}"
-              - name: control_cohort_id
-                value: "{{inputs.parameters.control_cohort_definition_id}}"
-              - name: outcome_concept_id
-                value: "{{inputs.parameters.outcome}}"
-              - name: internal_api_env
-                value: "{{inputs.parameters.internal_api_env}}"
-              - name: n_pcs
-                value: "{{inputs.parameters.n_pcs}}"
-              - name: maf_threshold
-                value: "{{inputs.parameters.maf_threshold}}"
-              - name: imputation_score_cutoff
-                value: "{{inputs.parameters.imputation_score_cutoff}}"
-              - name: hare_population
-                value: "{{inputs.parameters.hare_population}}"
-              - name: pvalue_cutoff
-                value: "{{inputs.parameters.pvalue_cutoff}}"
-              - name: top_n_hits
-                value: "{{inputs.parameters.top_n_hits}}"
-            artifacts:
-              - name: variables_json
-                from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
-        - name: get-gwas-attrition
-          template: get-attrition-csv
-          dependencies: [process-variables]
-          arguments:
-            parameters:
-              - name: source_id
-                value: "{{inputs.parameters.source_id}}"
-              - name: case_cohort_id
-                value: "{{inputs.parameters.case_cohort_definition_id}}"
-              - name: control_cohort_id
-                value: "{{inputs.parameters.control_cohort_definition_id}}"
-              - name: breakdown_concept_id
-                value: "{{inputs.parameters.hare_concept_id}}"
-              - name: internal_api_env
-                value: "{{inputs.parameters.internal_api_env}}"
-            artifacts:
-              - name: variables_json
-                from: "{{tasks.process-variables.outputs.artifacts.raw_variables_json}}"
-        - name: archive-outputs
-          template: run-tar
-          dependencies: [get-gwas-metadata, get-gwas-attrition]
-          arguments:
-            parameters:
-              - name: out_prefix
-                value: "{{inputs.parameters.out_prefix}}"
-            artifacts:
-              - name: attrition_csvs
-                from: "{{tasks.get-gwas-attrition.outputs.artifacts.attrition_table_directory}}"
-              - name: gwas_metadata
-                from: "{{tasks.get-gwas-metadata.outputs.artifacts.gwas_metadata}}"
-        - name: create-indexd-record
-          template: create-indexd-record
-          dependencies: [archive-outputs]
-          arguments:
-            parameters:
-              - name: arborist_resource
-                value: "/programs/DEV/projects/test"
-              - name: internal_api_env
-                value: "{{inputs.parameters.internal_api_env}}"
-            artifacts:
-              - name: gwas_archive
-                from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
-  
+    - name: gwas-workflow
+      inputs:
+        parameters:
+          - name: internal_api_env
+          - name: source_id
+          - name: source_population_cohort
+          - name: hare_concept_id
+          - name: hare_population
+          - name: n_pcs
+          - name: variables
+          - name: out_prefix
+          - name: outcome
+          - name: pca_file
+          - name: relatedness_matrix_file
+          - name: genome_build
+            enum:
+              - "hg38"
+              - "hg19"
+            default: "hg19"
+          - name: n_segments
+            default: 0
+          - name: segment_length
+            default: 10000
+          - name: variant_block_size
+            default: 1024
+          - name: mac_threshold
+          - name: maf_threshold
+          - name: imputation_score_cutoff
+            default: 0.03
+          - name: top_n_hits
+            default: 100
+          - name: pvalue_cutoff
+            default: 5e-8
+          - name: gds_files
+      dag:
+        tasks:
+          - name: pass-variables
+            template: pass-variables
+            arguments:
+              parameters:
+                - name: variables
+                  value: "{{inputs.parameters.variables}}"
+          - name: process-variables
+            template: process-variables
+            dependencies: [pass-variables]
+            arguments:
+              parameters:
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+              artifacts:
+                - name: variables_json
+                  from: "{{tasks.pass-variables.outputs.artifacts.variables_json}}"
+          - name: get-pheno-csv
+            template: get-pheno-csv
+            dependencies: [process-variables]
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+              artifacts:
+                - name: variables_with_hare_json
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_with_hare_json}}"
+          - name: generate-pheno
+            template: generate-pheno
+            dependencies: [get-pheno-csv]
+            arguments:
+              parameters:
+                - name: prefixed_hare_concept_id
+                  value: "ID_{{inputs.parameters.hare_concept_id}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
+              artifacts:
+                - name: pheno_csv
+                  from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
+          - name: get-gwas-metadata
+            template: get-gwas-metadata
+            dependencies: [process-variables]
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+                - name: n_pcs
+                  value: "{{inputs.parameters.n_pcs}}"
+                - name: maf_threshold
+                  value: "{{inputs.parameters.maf_threshold}}"
+                - name: imputation_score_cutoff
+                  value: "{{inputs.parameters.imputation_score_cutoff}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
+                - name: pvalue_cutoff
+                  value: "{{inputs.parameters.pvalue_cutoff}}"
+                - name: top_n_hits
+                  value: "{{inputs.parameters.top_n_hits}}"
+              artifacts:
+                - name: variables_validated
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
+          - name: get-attrition-csv
+            template: get-attrition-csv
+            dependencies: [process-variables]
+            arguments:
+              parameters:
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+              artifacts:
+                - name: variables_validated
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
+          - name: run-tar
+            template: run-tar
+            dependencies: [get-gwas-metadata, get-attrition-csv]
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+              artifacts:
+                - name: attrition_csvs
+                  from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_directory}}"
+                - name: gwas_metadata
+                  from: "{{tasks.get-gwas-metadata.outputs.artifacts.gwas_metadata}}"
+          - name: create-indexd-record
+            template: create-indexd-record
+            dependencies: [run-tar]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "/programs/DEV/projects/test"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+              artifacts:
+                - name: gwas_archive
+                  from: "{{tasks.run-tar.outputs.artifacts.gwas_archive}}"
 
-  - name: get-variable-json
-    inputs:
-      parameters:
-        - name: variables
-        - name: hare_concept_id
-        - name: outcome
-    script:
-      image: quay.io/cdis/alpine-jq:latest
-      command: [sh]
-      source: |
-        echo '{{inputs.parameters.variables}}' | jq . > /mnt/vol/raw_variables.json
-        echo '{{inputs.parameters.variables}}' | jq '. += [{"variable_type": "concept", "concept_id": {{inputs.parameters.hare_concept_id}} }]' > /mnt/vol/variables_with_hare.json
+    - name: pass-variables
+      inputs:
+        parameters:
+          - name: variables
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        command: [sh]
+        source: |
+            echo '{{inputs.parameters.variables}}'|jq -r . > /mnt/vol/variables.json
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
+            archive: 
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables.json"
 
-        CONCEPT_VARS=""
+    - name: process-variables
+      inputs:
+        parameters:
+          - name: internal_api_env
+          - name: hare_concept_id
+          - name: outcome
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:master        
+        imagePullPolicy: Always
+        command: ["/bin/bash"]
+        source: |
+          /env/bin/vadc-gwas-tools ProcessInputVariables \
+          --raw_variables_json {{inputs.artifacts.variables_json.path}} \
+          --hare_concept_id {{inputs.parameters.hare_concept_id}} \
+          --outcome {{inputs.parameters.outcome}} \
+          --output_raw_variable_json /mnt/vol/variables_validated.json \
+          --output_variable_json_w_hare /mnt/vol/variables_with_hare.json \
+          --output_other_json /mnt/vol/other_variable_data.json
+        volumeMounts:
+            - name: workdir
+              mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        parameters:
+          - name: other_variable_data
+            valueFrom:
+              path: /mnt/vol/other_variable_data.json
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables_validated.json"
+          - name: variables_with_hare_json
+            path: /mnt/vol/variables_with_hare.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables_with_hare.json"
+          - name: other_variable_data_json
+            path: /mnt/vol/other_variable_data.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.other_variable_data.json"
 
-        if [ "{{inputs.parameters.outcome}}" = "-1" ]; then
-                CONCEPT_VARS=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .concept_id != null ) | ["ID_\(.concept_id)"]' | jq -rs 'flatten(1) | join(" ")'`
-        else
-                CONCEPT_VARS=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .concept_id != null and .concept_id != {{inputs.parameters.outcome}} ) | ["ID_\(.concept_id)"]' | jq -rs 'flatten(1) | join(" ")'`
-        fi
+    - name: get-pheno-csv
+      inputs:
+        parameters:
+          - name: source_id
+          - name: internal_api_env
+          - name: source_population_cohort
+        artifacts:
+          - name: variables_with_hare_json
+            path: /mnt/vol/variables_with_hare.json
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools GetCohortPheno \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --variables_json {{inputs.artifacts.variables_with_hare_json.path}} \
+          --output /mnt/vol/{{workflow.name}}.pheno.csv.gz
+        volumeMounts:
+            - name: workdir
+              mountPath: /mnt/vol
+        env: 
+            - name: GEN3_ENVIRONMENT
+              value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: pheno_csv
+            path: /mnt/vol/{{workflow.name}}.pheno.csv.gz
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.pheno.csv.gz"
 
-        DICHOTOMOUS_VARS=""
-        CURR=`echo '{{inputs.parameters.variables}}' | jq '.[] | select( .variable_type == "custom_dichotomous" ) | .cohort_ids | map(tostring) | join("_") | "ID_\(.)"' | jq -rs 'flatten(1) | join(" ")'`
-        if [ -z $CURR ]; then
-                DICHOTOMOUS_VARS=""
-        elif [ -z $CONCEPT_VARS ]; then
-                DICHOTOMOUS_VARS="${CURR}"
-        else
-                DICHOTOMOUS_VARS=" ${CURR}"
-        fi
+    - name: generate-pheno
+      inputs:
+        parameters:
+          - name: prefixed_hare_concept_id
+          - name: hare_population
+        artifacts:
+          - name: pheno_csv
+            mode: 0777
+            path: "/mnt/vol/phenotypes.csv.gz"
+      script:
+        image: quay.io/cdis/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(Biobase)
 
-        echo -n "${CONCEPT_VARS}${DICHOTOMOUS_VARS}" > /mnt/vol/covariate_string.txt
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-    outputs:
-      parameters:
-        - name: covariates
-          valueFrom:
-              path: /mnt/vol/covariate_string.txt
-      artifacts:
-        - name: raw_variables_json
-          path: /mnt/vol/raw_variables.json
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{workflow.name}}.raw_variables.json"
-        - name: variables_with_hare_json
-          path: /mnt/vol/variables_with_hare.json
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{workflow.name}}.variables_with_hare.json"
+          dat.csv <- read.csv(gzfile("{{inputs.artifacts.pheno_csv.path}}"),
+                              stringsAsFactors=FALSE, na.strings=c("NA", ""))
+          stopifnot("sample.id" %in% names(dat.csv))
+          dat.csv$sample.id <- as.character(dat.csv$sample.id)
 
-  - name: gwas-pheno
-    inputs:
-      parameters:
-        - name: source_id
-        - name: case_cohort_id
-        - name: control_cohort_id
-        - name: internal_api_env
-      artifacts:
-        - name: variables_json
-          path: "/mnt/vol/variables.json"
-    script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.4
-      imagePullPolicy: Always
-      command: [/bin/bash]
-      source: |
-        if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
-            CONTROL_COHORT=""
-        else
-            CONTROL_COHORT=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
-        fi
+          # Filter to HARE population
+          dat.csv <- subset(dat.csv, {{inputs.parameters.prefixed_hare_concept_id}} == "{{inputs.parameters.hare_population}}")
 
-        /env/bin/vadc-gwas-tools GetCohortPheno \
-        --source_id {{inputs.parameters.source_id}} \
-        --case_cohort_id {{inputs.parameters.case_cohort_id}}${CONTROL_COHORT} \
-        --variables_json {{inputs.artifacts.variables_json.path}} \
-        --output /mnt/vol/{{workflow.name}}.pheno.csv.gz
+          # Remove NAs
+          dat.csv <- na.omit(dat.csv)
 
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      env:
-        - name: GEN3_ENVIRONMENT
-          value: "{{inputs.parameters.internal_api_env}}"
-    outputs:
-      artifacts:
-        - name: pheno_csv
-          path: /mnt/vol/{{workflow.name}}.pheno.csv.gz
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.pheno.csv.gz"
+          # Convert to AnnotatedDataFrame
+          annot <- AnnotatedDataFrame(dat.csv)
+          stopifnot("sample.id" %in% varLabels(annot))
+          save(annot, file="/mnt/vol/phenotypes.Rdata")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+      outputs:
+        artifacts:
+          - name: phenotype_file
+            path: "/mnt/vol/phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
 
-  - name: generate-pheno
-    inputs:
-      parameters:
-        - name: prefixed_hare_concept_id
-        - name: hare_population
-      artifacts:
-        - name: pheno_csv
-          mode: 0777
-          path: "/mnt/vol/phenotypes.csv.gz"
-    script:
-      image: quay.io/cdis/topmed-master:2.12.0
-      imagePullPolicy: IfNotPresent
-      command: [Rscript]
-      source: |
-        library(Biobase)
+    - name: get-gwas-metadata
+      inputs:
+        parameters:
+          - name: source_id
+          - name: source_population_cohort
+          - name: outcome
+          - name: internal_api_env
+          - name: n_pcs
+          - name: maf_threshold
+          - name: imputation_score_cutoff
+          - name: hare_population
+          - name: pvalue_cutoff
+          - name: top_n_hits
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools GetGwasMetadata \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --variables_json {{inputs.artifacts.variables_validated.path}} \
+          --outcome {{inputs.parameters.outcome}} \
+          --n_pcs {{inputs.parameters.n_pcs}} \
+          --maf_threshold {{inputs.parameters.maf_threshold}} \
+          --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
+          --hare_population "{{inputs.parameters.hare_population}}" \
+          --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
+          --top_n_hits {{inputs.parameters.top_n_hits}} \
+          --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: gwas_metadata
+            path: /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.gwas_metadata.yaml"
 
-        dat.csv <- read.csv(gzfile("{{inputs.artifacts.pheno_csv.path}}"),
-                            stringsAsFactors=FALSE, na.strings=c("NA", ""))
-        stopifnot("sample.id" %in% names(dat.csv))
-        dat.csv$sample.id <- as.character(dat.csv$sample.id)
+    - name: get-attrition-csv
+      inputs:
+        parameters:
+          - name: source_id
+          - name: internal_api_env
+          - name: hare_concept_id
+          - name: source_population_cohort
+          - name: outcome
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+      script:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash"]
+        source: |
+          mkdir /mnt/vol/attrition_csvs
+          /env/bin/vadc-gwas-tools GetCohortAttritionTable \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --outcome {{inputs.parameters.outcome}} \
+          --variables_json {{inputs.artifacts.variables_validated.path}} \
+          --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
+          --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}}
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: attrition_table_directory
+            path: /mnt/vol/attrition_csvs
+            archive:
+              none: {}
+            s3:
+                key: "{{workflow.name}}/{{pod.name}}/attrition_csvs"
 
-        # Filter to HARE population
-        dat.csv <- subset(dat.csv, {{inputs.parameters.prefixed_hare_concept_id}} == "{{inputs.parameters.hare_population}}")
+    - name: run-tar
+      inputs:
+        parameters:
+          - name: out_prefix
+        artifacts:
+          - name: attrition_csvs
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/attrition_tables"
+          - name: gwas_metadata
+            path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.gwas_metadata.yaml"
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          cd /mnt/vol
+          tar -czf {{workflow.name}}.tar.gz {{workflow.name}}/
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      outputs:
+        artifacts:
+          - name: gwas_archive
+            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: second-argo-bucket
+              key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
 
-        # Remove NAs
-        dat.csv <- na.omit(dat.csv)
-
-        # Convert to AnnotatedDataFrame
-        annot <- AnnotatedDataFrame(dat.csv)
-        stopifnot("sample.id" %in% varLabels(annot))
-        save(annot, file="/mnt/vol/phenotypes.Rdata")
-
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      resources:
-        requests:
-          cpu: 500m
-          memory: 512Mi
-        limits:
-          cpu: 1000m
-          memory: 2Gi
-    outputs:
-      artifacts:
-        - name: phenotype_file
-          path: "/mnt/vol/phenotypes.Rdata"
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
-
-  - name: gwas-metadata
-    inputs:
-      parameters:
-        - name: source_id
-        - name: case_cohort_id
-        - name: control_cohort_id
-        - name: outcome_concept_id
-        - name: internal_api_env
-        - name: n_pcs
-        - name: maf_threshold
-        - name: imputation_score_cutoff
-        - name: hare_population
-        - name: pvalue_cutoff
-        - name: top_n_hits
-      artifacts:
-        - name: variables_json
-          path: /mnt/vol/variables.json
-    script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.4
-      imagePullPolicy: Always
-      command: [/bin/bash]
-      source: |
-        if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
-            OUTCOME_ID=" --outcome_concept_id {{inputs.parameters.outcome_concept_id}}"
-        else
-            OUTCOME_ID=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
-        fi
-
-        /env/bin/vadc-gwas-tools GetGwasMetadata \
-        --source_id {{inputs.parameters.source_id}} \
-        --case_cohort_id {{inputs.parameters.case_cohort_id}}${OUTCOME_ID} \
-        --variables_json {{inputs.artifacts.variables_json.path}} \
-        --n_pcs {{inputs.parameters.n_pcs}} \
-        --maf_threshold {{inputs.parameters.maf_threshold}} \
-        --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
-        --hare_population "{{inputs.parameters.hare_population}}" \
-        --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
-        --top_n_hits {{inputs.parameters.top_n_hits}} \
-        --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
-
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      env:
-        - name: GEN3_ENVIRONMENT
-          value: "{{inputs.parameters.internal_api_env}}"
-    outputs:
-      artifacts:
-        - name: gwas_metadata
-          path: /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.gwas_metadata.yaml"
-
-  - name: get-attrition-csv
-    inputs:
-      parameters:
-        - name: source_id
-        - name: case_cohort_id
-        - name: control_cohort_id
-        - name: breakdown_concept_id
-        - name: internal_api_env
-      artifacts:
-        - name: variables_json
-          path: /mnt/vol/variables.json
-    script:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.4
-      imagePullPolicy: Always
-      command: ["/bin/bash"]
-      source: |
-        mkdir /mnt/vol/attrition_csvs
-        if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
-            CONTROL_COHORT=""
-        else
-            CONTROL_COHORT=" --control_cohort_id {{inputs.parameters.control_cohort_id}}"
-        fi
-
-        /env/bin/vadc-gwas-tools GetCohortAttritionTable \
-        --source_id {{inputs.parameters.source_id}} \
-        --case_cohort_id {{inputs.parameters.case_cohort_id}}${CONTROL_COHORT} \
-        --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}} \
-        --variables_json {{inputs.artifacts.variables_json.path}} \
-        --prefixed_breakdown_concept_id {{inputs.parameters.breakdown_concept_id}}
-
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      env:
-        - name: GEN3_ENVIRONMENT
-          value: "{{inputs.parameters.internal_api_env}}"
-    outputs:
-      artifacts:
-        - name: attrition_table_directory
-          path: /mnt/vol/attrition_csvs
-          archive:
-            none: {}
-          s3:
-            key: "{{workflow.name}}/{{pod.name}}/attrition_csvs"
-
-  - name: run-tar
-    inputs:
-      parameters:
-        - name: out_prefix
-      artifacts:
-        - name: attrition_csvs
-          mode: 0777
-          path: "/mnt/vol/{{workflow.name}}/attrition_tables"
-        - name: gwas_metadata
-          path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.gwas_metadata.yaml"
-    retryStrategy:
-      limit: "3"
-      retryPolicy: "Always"
-
-    script:
-      image: quay.io/cdis/alpine-jq:latest
-      imagePullPolicy: IfNotPresent
-      command: [/bin/sh]
-      source: |
-        cd /mnt/vol
-        tar -czf {{workflow.name}}.tar.gz {{workflow.name}}/
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      resources:
-        requests:
-          cpu: 250m
-          memory: 500Mi
-        limits:
-          cpu: 500m
-          memory: 1Gi
-
-    outputs:
-      artifacts:
-        - name: gwas_archive
-          path: "/mnt/vol/{{workflow.name}}.tar.gz"
-          archive:
-            none: {}
-          s3:
-            endpoint: s3.amazonaws.com
-            bucket: second-argo-bucket
-            key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
-            accessKeySecret:
-              name: argo-s3-creds
-              key: AccessKeyId
-            secretKeySecret:
-              name: argo-s3-creds
-              key: SecretAccessKey
-
-  - name: create-indexd-record
-    inputs:
-      parameters:
-        - name: arborist_resource
-        - name: internal_api_env
-      artifacts:
-        - name: gwas_archive
-          path: "/mnt/vol/{{workflow.name}}.tar.gz"
-    container:
-      image: quay.io/cdis/vadc-gwas-tools:0.2.4
-      imagePullPolicy: Always
-      command: ["/bin/bash", "-c"]
-      args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
-              --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-              --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{workflow.name}}.tar.gz \
-              --arborist_resource {{inputs.parameters.arborist_resource}} \
-              -o /mnt/vol/did.json"]
-      env:
-        - name: GEN3_ENVIRONMENT
-          value: "{{inputs.parameters.internal_api_env}}"
-        - name: INDEXDUSER
-          valueFrom:
-            secretKeyRef:
-              name: indexd-creds
-              key: user
-        - name: INDEXDPASS
-          valueFrom:
-            secretKeyRef:
-              name: indexd-creds
-              key: password
-      volumeMounts:
-        - name: workdir
-          mountPath: /mnt/vol
-      resources:
-        requests:
-          cpu: 50m
-          memory: 50Mi
-        limits:
-          cpu: 100m
-          memory: 100Mi
-    outputs:
-      parameters:
-        - name: gwas_archive_index
-          valueFrom:
-            path: /mnt/vol/did.json
-          globalName: gwas_archive_index
+    - name: create-indexd-record
+      inputs:
+        parameters:
+          - name: arborist_resource
+          - name: internal_api_env
+        artifacts:
+          - name: gwas_archive
+            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+      container:
+        image: quay.io/cdis/vadc-gwas-tools:master
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
+                --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{workflow.name}}.tar.gz \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did.json"]
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      outputs:
+        parameters:
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did.json
+            globalName: gwas_archive_index

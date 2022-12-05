@@ -7,42 +7,44 @@ metadata:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-kmhernan-40uchicago-2eedu"
+    gen3username: "user-qiongl-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
     strategy: OnPodSuccess
   podMetadata:
     labels:
-      gen3username: "user-kmhernan-40uchicago-2eedu"
+      gen3username: "user-qiongl-40uchicago-2eedu"
     annotations:
-      gen3username: "kmhernan@uchicago.edu"
+      gen3username: "qiongl@uchicago.edu"
   arguments:
     parameters:
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
         value: 2
-      - name: case_cohort_definition_id
-        value: 401
-      - name: control_cohort_definition_id
-        value: -1
+      - name: source_population_cohort
+        value: 404
       - name: hare_population
         value: "non-hispanic Asian"
+      - name: hare_concept_id
+        default: 2000007027
+        value: 2000007027
       - name: n_pcs
         default: 0
         value: 3
       - name: variables
         value: |
           [
-            {"variable_type": "concept", "concept_id": 2000006886},
-            {"variable_type": "concept", "concept_id": 2000006885},
-            {"variable_type": "custom_dichotomous", "cohort_ids": [301, 401], "provided_name": "My Custom Dichotomous"}
+            {"variable_type": "custom_dichotomous", "cohort_ids": [300, 301], "provided_name": "test123"},
+            {"variable_type": "concept", "concept_id": 2000000708, "prefixed_concept_id": null},
+            {"variable_type": "concept", "concept_id": 2000000280, "prefixed_concept_id": null}
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
-        value: 2000006885
+        value: |-
+          "{\"variable_type\": \"custom_dichotomous\", \"provided_name\": \"test123\", \"cohort_ids\": [300, 301]}"
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -66,7 +68,7 @@ spec:
       - name: maf_threshold
         value: 0.01
       - name: imputation_score_cutoff
-        value: 0.3
+        value: 0.03
       - name: pvalue_cutoff
         default: 5e-8
         value: 5e-8
