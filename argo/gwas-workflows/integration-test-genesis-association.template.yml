@@ -189,14 +189,14 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.0        
+        image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: ["/bin/bash"]
         source: |
           /env/bin/vadc-gwas-tools ProcessInputVariables \
           --raw_variables_json {{inputs.artifacts.variables_json.path}} \
           --hare_concept_id {{inputs.parameters.hare_concept_id}} \
-          --outcome {{inputs.parameters.outcome}} \
+          --outcome '{{inputs.parameters.outcome}}' \
           --output_raw_variable_json /mnt/vol/variables_validated.json \
           --output_variable_json_w_hare /mnt/vol/variables_with_hare.json \
           --output_other_json /mnt/vol/other_variable_data.json
@@ -241,7 +241,7 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.0
+        image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -332,7 +332,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.0
+        image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: [/bin/bash]
         source: |
@@ -340,7 +340,7 @@ spec:
           --source_id {{inputs.parameters.source_id}} \
           --source_population_cohort {{inputs.parameters.source_population_cohort}} \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
-          --outcome {{inputs.parameters.outcome}} \
+          --outcome '{{inputs.parameters.outcome}}' \
           --n_pcs {{inputs.parameters.n_pcs}} \
           --maf_threshold {{inputs.parameters.maf_threshold}} \
           --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
@@ -375,7 +375,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.0
+        image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: ["/bin/bash"]
         source: |
@@ -383,7 +383,7 @@ spec:
           /env/bin/vadc-gwas-tools GetCohortAttritionTable \
           --source_id {{inputs.parameters.source_id}} \
           --source_population_cohort {{inputs.parameters.source_population_cohort}} \
-          --outcome {{inputs.parameters.outcome}} \
+          --outcome '{{inputs.parameters.outcome}}' \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
           --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
           --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}}
@@ -455,7 +455,7 @@ spec:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.tar.gz"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.0
+        image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
