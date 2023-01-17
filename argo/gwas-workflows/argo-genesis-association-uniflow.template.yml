@@ -628,7 +628,7 @@ spec:
           if [[ -z "{{inputs.parameters.covariates}}" ]]; then
               echo "No covariates provided."
           else
-              echo "covars {{inputs.parameters.covariates}}" >> null_model.config
+              echo "covars \"{{inputs.parameters.covariates}}\"" >> null_model.config
           fi
           echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> null_model.config
 
