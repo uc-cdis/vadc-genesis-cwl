@@ -425,7 +425,7 @@ spec:
           /env/bin/vadc-gwas-tools GetCohortAttritionTable \
           --source_id {{inputs.parameters.source_id}} \
           --source_population_cohort {{inputs.parameters.source_population_cohort}} \
-          --outcome {{inputs.parameters.outcome}} \
+          --outcome '{{inputs.parameters.outcome}}' \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
           --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
           --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}}
@@ -472,7 +472,7 @@ spec:
           --source_id {{inputs.parameters.source_id}} \
           --source_population_cohort {{inputs.parameters.source_population_cohort}} \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
-          --outcome {{inputs.parameters.outcome}} \
+          --outcome '{{inputs.parameters.outcome}}' \
           --n_pcs {{inputs.parameters.n_pcs}} \
           --maf_threshold {{inputs.parameters.maf_threshold}} \
           --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
