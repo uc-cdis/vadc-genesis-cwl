@@ -44,7 +44,7 @@ spec:
         value: vadc_genesis
       - name: outcome
         value: |-
-          "{\"variable_type\": \"custom_dichotomous\", \"provided_name\": \"test123\", \"cohort_ids\": [300, 301]}"
+          {"variable_type": "custom_dichotomous", "provided_name": "test123", "cohort_ids": [300, 301]}
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
