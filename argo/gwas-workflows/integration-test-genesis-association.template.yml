@@ -277,6 +277,8 @@ spec:
       script:
         image: quay.io/cdis/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
         command: [Rscript]
         source: |
           library(Biobase)
