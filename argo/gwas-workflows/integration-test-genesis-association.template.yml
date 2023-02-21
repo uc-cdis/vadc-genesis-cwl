@@ -133,8 +133,8 @@ spec:
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
-          - name: run-tar
-            template: run-tar
+          - name: archive-outputs
+            template: archive-outputs
             dependencies: [get-gwas-metadata, get-attrition-csv]
             arguments:
               parameters:
@@ -147,7 +147,7 @@ spec:
                   from: "{{tasks.get-gwas-metadata.outputs.artifacts.gwas_metadata}}"
           - name: create-indexd-record
             template: create-indexd-record
-            dependencies: [run-tar]
+            dependencies: [archive-outputs]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -156,7 +156,7 @@ spec:
                   value: "{{inputs.parameters.internal_api_env}}"
               artifacts:
                 - name: gwas_archive
-                  from: "{{tasks.run-tar.outputs.artifacts.gwas_archive}}"
+                  from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
 
     - name: pass-variables
       inputs:
@@ -402,7 +402,7 @@ spec:
             s3:
                 key: "{{workflow.name}}/{{pod.name}}/attrition_csvs"
 
-    - name: run-tar
+    - name: archive-outputs
       inputs:
         parameters:
           - name: out_prefix
@@ -418,7 +418,7 @@ spec:
         command: [/bin/sh]
         source: |
           cd /mnt/vol
-          tar -czf {{workflow.name}}.tar.gz {{workflow.name}}/
+          zip -r {{workflow.name}}.zip {{workflow.name}}/
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -432,13 +432,13 @@ spec:
       outputs:
         artifacts:
           - name: gwas_archive
-            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            path: "/mnt/vol/{{workflow.name}}.zip"
             archive:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
               bucket: second-argo-bucket
-              key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
+              key: "{{workflow.name}}/{{workflow.name}}.zip"
               accessKeySecret:
                 name: argo-s3-creds
                 key: AccessKeyId
@@ -453,14 +453,14 @@ spec:
           - name: internal_api_env
         artifacts:
           - name: gwas_archive
-            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            path: "/mnt/vol/{{workflow.name}}.zip"
       container:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-                --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{workflow.name}}.tar.gz \
+                --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did.json"]
         env:

@@ -1188,12 +1188,12 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: alpine:latest
+        image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
         command: [/bin/sh]
         source: |
           cd /mnt/vol
-          tar -czf {{workflow.name}}.tar.gz {{workflow.name}}/
+          zip -r {{workflow.name}}.zip {{workflow.name}}/
 
         volumeMounts:
           - name: workdir
@@ -1208,13 +1208,13 @@ spec:
       outputs:
         artifacts:
           - name: gwas_archive
-            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            path: "/mnt/vol/{{workflow.name}}.zip"
             archive:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
               bucket: argo-artifact-storage-downloadable 
-              key: "{{workflow.name}}/{{workflow.name}}.tar.gz"
+              key: "{{workflow.name}}/{{workflow.name}}.zip"
               accessKeySecret:
                 name: argo-s3-creds
                 key: AccessKeyId
@@ -1229,7 +1229,7 @@ spec:
           - name: internal_api_env
         artifacts:
           - name: gwas_archive
-            path: "/mnt/vol/{{workflow.name}}.tar.gz"
+            path: "/mnt/vol/{{workflow.name}}.zip"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1239,7 +1239,7 @@ spec:
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.tar.gz \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did.json"]
         env:
