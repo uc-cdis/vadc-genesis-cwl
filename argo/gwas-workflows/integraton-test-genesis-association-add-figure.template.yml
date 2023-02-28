@@ -556,4 +556,4 @@ spec:
           - name: simulated_plot_index
             valueFrom:
               path: /mnt/vol/did_plot.json
-            globalName: simulated_plot_index
+            globalName: manhattan_plot_index
