@@ -190,7 +190,7 @@ spec:
             path: /mnt/vol/variables.json
       script:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
           /env/bin/vadc-gwas-tools ProcessInputVariables \
@@ -242,7 +242,7 @@ spec:
             path: /mnt/vol/variables_with_hare.json
       script:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools GetCohortPheno \
@@ -335,7 +335,7 @@ spec:
             path: /mnt/vol/variables_validated.json
       script:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools GetGwasMetadata \
@@ -378,7 +378,7 @@ spec:
             path: /mnt/vol/variables_validated.json
       script:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
           mkdir /mnt/vol/attrition_csvs
@@ -458,7 +458,7 @@ spec:
             path: "/mnt/vol/{{workflow.name}}.zip"
       container:
         image: quay.io/cdis/vadc-gwas-tools:1.0.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
