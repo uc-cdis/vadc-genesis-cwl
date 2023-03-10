@@ -433,7 +433,7 @@ spec:
         retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
           --gds_file {{inputs.parameters.gds_file}}
@@ -460,7 +460,7 @@ spec:
         retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
           --file_prefix {{inputs.parameters.file_prefix}} \

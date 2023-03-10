@@ -417,7 +417,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
@@ -723,7 +723,7 @@ spec:
         retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
           --gds_file {{inputs.parameters.gds_file}}
@@ -750,7 +750,7 @@ spec:
         retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
           --file_prefix {{inputs.parameters.file_prefix}} \
@@ -1072,7 +1072,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools CurateGwasHits \
@@ -1128,7 +1128,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           if [[ "{{inputs.parameters.control_cohort_id}}" == "-1" ]]; then
@@ -1180,7 +1180,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
           mkdir /mnt/vol/attrition_csvs
@@ -1288,7 +1288,7 @@ spec:
         retryPolicy: "Always"
       container:
         image: quay.io/cdis/vadc-gwas-tools:0.2.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
