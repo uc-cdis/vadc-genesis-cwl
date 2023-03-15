@@ -3,6 +3,8 @@ kind: WorkflowTemplate
 metadata:
   name: gwas-template-uniflow
 spec:
+  ttlStrategy:
+    secondsAfterCompletion: 10
   entrypoint: gwas-workflow
   templates:
     - name: gwas-workflow
@@ -335,6 +337,7 @@ spec:
           - name: variables
       script:
         image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
         command: [sh]
         source: |
             echo '{{inputs.parameters.variables}}'|jq -r . > /mnt/vol/variables.json
@@ -363,7 +366,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1        
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -417,7 +420,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -464,7 +467,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -508,7 +511,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -544,7 +547,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -604,7 +607,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -690,7 +693,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
@@ -749,7 +752,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
@@ -793,7 +796,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -819,7 +822,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -864,7 +867,7 @@ spec:
         limit: "5"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -949,7 +952,7 @@ spec:
         limit: "4"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1001,7 +1004,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1059,7 +1062,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1128,7 +1131,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -1234,7 +1237,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
