@@ -3,6 +3,8 @@ kind: WorkflowTemplate
 metadata:
   name: gwas-template-integration-test
 spec:
+  ttlStrategy:
+    secondsAfterCompletion: 10
   entrypoint: gwas-workflow
   templates:
     - name: gwas-workflow
@@ -164,6 +166,7 @@ spec:
           - name: variables
       script:
         image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
         command: [sh]
         source: |
             echo '{{inputs.parameters.variables}}'|jq -r . > /mnt/vol/variables.json
@@ -189,7 +192,7 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -241,7 +244,7 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -275,7 +278,7 @@ spec:
             mode: 0777
             path: "/mnt/vol/phenotypes.csv.gz"
       script:
-        image: quay.io/cdis/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -334,7 +337,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -377,7 +380,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -457,7 +460,7 @@ spec:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.zip"
       container:
-        image: quay.io/cdis/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
