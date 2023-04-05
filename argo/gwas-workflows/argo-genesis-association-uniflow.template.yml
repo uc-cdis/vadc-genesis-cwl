@@ -419,6 +419,9 @@ spec:
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
