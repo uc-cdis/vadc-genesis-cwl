@@ -131,7 +131,7 @@ spec:
                   from: "{{tasks.process-variables.outputs.artifacts.variables_with_hare_json}}"
           - name: generate-pheno
             template: generate-pheno
-            dependencies: [get-pheno-csv]
+            dependencies: [generate-attrition-csv, generate-gwas-metadata, get-pheno-csv]
             arguments:
               parameters:
                 - name: prefixed_hare_concept_id
@@ -419,6 +419,9 @@ spec:
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
         imagePullPolicy: IfNotPresent
