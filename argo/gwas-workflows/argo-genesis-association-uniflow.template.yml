@@ -327,9 +327,13 @@ spec:
                   value: "/cohort-middleware"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
               artifacts:
                 - name: gwas_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
+                - name: manhattan_plot
+                  from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
 
     - name: pass-variables
       inputs:
@@ -1045,7 +1049,15 @@ spec:
             archive:
               none: {}
             s3:
-              key: "{{workflow.name}}/gwas_plots/{{inputs.parameters.out_prefix}}_manhattan.png"
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
+              key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
           - name: qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
@@ -1233,9 +1245,12 @@ spec:
         parameters:
           - name: arborist_resource
           - name: internal_api_env
+          - name: out_prefix
         artifacts:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.zip"
+          - name: manhattan_plot
+            path: "/mnt/vol/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1247,7 +1262,12 @@ spec:
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
                 --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
-                -o /mnt/vol/did.json"]
+                -o /mnt/vol/did_archive.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.manhattan_plot.path}} \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_plot.json"]
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -1275,5 +1295,9 @@ spec:
         parameters:
           - name: gwas_archive_index
             valueFrom:
-              path: /mnt/vol/did.json
+              path: /mnt/vol/did_archive.json
             globalName: gwas_archive_index
+          - name: manhattan_plot_index
+            valueFrom:
+              path: /mnt/vol/did_plot.json
+            globalName: manhattan_plot_index
