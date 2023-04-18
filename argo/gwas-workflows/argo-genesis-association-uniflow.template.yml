@@ -898,7 +898,7 @@ spec:
           echo "variant_include_file {{inputs.artifacts.variant_list_dir.path}}/chr${CHROM}.selected_variants.RData" >> assoc_single.config
           if [[ "{{inputs.parameters.outcome_type}}" == "BINARY" ]]; then
                 echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model.RData" >> assoc_single.config
-                echo "test_type \"score.spa\"" >> null_model.config
+                echo "test_type \"score.spa\"" >> assoc_single.config
           else
                 echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
           fi
