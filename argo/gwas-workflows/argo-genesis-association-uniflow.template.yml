@@ -1041,7 +1041,7 @@ spec:
             memory: 1Gi
           limits:
             cpu: 1000m
-            memory: 8Gi
+            memory: 10Gi
       outputs:
         artifacts:
           - name: manhattan_plot
