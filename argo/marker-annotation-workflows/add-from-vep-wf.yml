@@ -1,0 +1,168 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: add-anno-from-vep-
+  namespace: argo
+  labels:
+    workflows.argoproj.io/archive-strategy: "true"
+    gen3username: "user-kmhernan-40uchicago-2eedu"
+spec:
+  entrypoint: add-anno-wf
+  nodeSelector:
+    role: "workflow"
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "workflow"
+      effect: "NoSchedule"
+  podMetadata:
+    labels:
+      gen3username: "user-kmhernan-40uchicago-2eedu"
+    annotations:
+      gen3username: "kmhernan@uchicago.edu"
+  podGC:
+    strategy: OnPodCompletion
+  arguments:
+    parameters:
+      - name: output_prefix
+        value: vadc_mvp_marker_annotation
+      - name: annotated_vcf_files
+        value: |-
+          [
+            {"chrom": "chr1", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr1.vep.vcf.gz"},
+            {"chrom": "chr2", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr2.vep.vcf.gz"},
+            {"chrom": "chr3", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr3.vep.vcf.gz"},
+            {"chrom": "chr4", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr4.vep.vcf.gz"},
+            {"chrom": "chr5", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr5.vep.vcf.gz"},
+            {"chrom": "chr6", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr6.vep.vcf.gz"},
+            {"chrom": "chr7", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr7.vep.vcf.gz"},
+            {"chrom": "chr8", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr8.vep.vcf.gz"},
+            {"chrom": "chr9", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr9.vep.vcf.gz"},
+            {"chrom": "chr10", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr10.vep.vcf.gz"},
+            {"chrom": "chr11", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr11.vep.vcf.gz"},
+            {"chrom": "chr12", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr12.vep.vcf.gz"},
+            {"chrom": "chr13", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr13.vep.vcf.gz"},
+            {"chrom": "chr14", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr14.vep.vcf.gz"},
+            {"chrom": "chr15", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr15.vep.vcf.gz"},
+            {"chrom": "chr16", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr16.vep.vcf.gz"},
+            {"chrom": "chr17", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr17.vep.vcf.gz"},
+            {"chrom": "chr18", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr18.vep.vcf.gz"},
+            {"chrom": "chr19", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr19.vep.vcf.gz"},
+            {"chrom": "chr20", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr20.vep.vcf.gz"},
+            {"chrom": "chr21", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr21.vep.vcf.gz"},
+            {"chrom": "chr22", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chr22.vep.vcf.gz"},
+            {"chrom": "chrX", "path": "/commons-data/kmhernan/annotated_vcfs/vadc_mvp_marker_annotation.chrX.vep.vcf.gz"}
+          ]
+  volumes:
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: parallel-test-pvc
+    - name: workdir
+      emptyDir: {}
+  templates:
+    - name: add-anno-wf
+      dag:
+        tasks:
+          - name: run-extract-vep-anno
+            template: extract-vep-anno
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item.chrom}}"
+                - name: output_prefix
+                  value: "{{workflow.parameters.output_prefix}}"
+                - name: vep_vcf_file
+                  value: "{{item.path}}"
+            withParam: "{{=toJson(map(jsonpath(workflow.parameters.annotated_vcf_files, '$'), {#}))}}"
+
+    - name: extract-vep-anno
+      inputs:
+        parameters:
+          - name: chromosome
+          - name: output_prefix
+          - name: vep_vcf_file
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: python:3.7
+        imagePullPolicy: IfNotPresent
+        command: [python3]
+        source: |
+          import gzip
+          ivcf = "{{inputs.parameters.vep_vcf_file}}"
+          
+          def extract_ann_cols(vcf):
+              cols = None
+              for line in vcf:
+                  if line.startswith('##INFO=<ID=CSQ'):
+                      cols = line.rstrip("\r\n").split("Format: ")[1].rstrip('">').split('|')
+                      break
+              return cols
+          
+          def parse_info(col, ann_cols):
+              ann_rsids = []
+              ann_symbols = []
+              for item in col.split(';'):
+                  if item.startswith('CSQ='):
+                      for ann_str in item.split('=', 1)[1].split(","):
+                          ann = dict(zip(ann_cols, ann_str.split("|")))
+                          # dbSNP
+                          rsid = list(filter(lambda x: x.startswith('rs'), ann.get('Existing_variation',"").split('&')))
+                          if rsid:
+                              ann_rsids.extend(rsid)
+          
+                          # gene symbol
+                          symbol = [i for i in ann.get("SYMBOL", "").split('&') if i]
+                          if symbol:
+                              ann_symbols.extend(symbol)
+          
+              ret_rsids = ",".join(sorted(list(set(ann_rsids))))
+              ret_symbols = ",".join(sorted(list(set(ann_symbols))))
+              return ret_rsids, ret_symbols
+          
+          if __name__ == '__main__':
+              otsv = "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.tsv.gz"
+              with gzip.open(ivcf, 'rt') as fh, gzip.open(otsv, 'wt') as o:
+                  o.write("variant.name\trsids\tnearest_genes\n")
+                  ann_cols = extract_ann_cols(fh)
+                  for line in fh:
+                      if line.startswith('#'): continue
+                      cols = line.rstrip("\r\n").split("\t")
+                      vid = cols[2]
+                      row = [vid]
+          
+                      rsids, symbols = parse_info(cols[7], ann_cols)
+                      if not rsids and not symbols:
+                          continue
+          
+                      if rsids:
+                          row.append(rsids)
+                      else:
+                          row.append('NA')
+          
+                      if symbols:
+                          row.append(symbols)
+                      else:
+                          row.append('NA')
+          
+                      o.write("\t".join(row) + "\n")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 250m
+            memory: 100Mi
+      outputs:
+        artifacts:
+          - name: vep_marker_anno_tsv
+            globalName: vep_mark_anno_tsv
+            path: "/mnt/vol/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.tsv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/marker_metadata/{{inputs.parameters.output_prefix}}.{{inputs.parameters.chromosome}}.vep.tsv.gz"
