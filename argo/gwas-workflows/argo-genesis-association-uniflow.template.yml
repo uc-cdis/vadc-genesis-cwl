@@ -891,31 +891,33 @@ spec:
           CHROM="$(awk 'NR=={{=asInt(inputs.parameters.segment) + 1}} {print $1}' {{inputs.artifacts.segment_file.path}})" 
           echo $CHROM
 
-          echo "out_prefix {{inputs.parameters.out_prefix}}" > assoc_single.config
-          echo "genome_build {{inputs.parameters.genome_build}}" >> assoc_single.config
-          echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> assoc_single.config
-          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> assoc_single.config
-          echo "segment_file {{inputs.artifacts.segment_file.path}}" >> assoc_single.config
-          echo "variant_block_size {{inputs.parameters.variant_block_size}}" >> assoc_single.config
-          echo "variant_include_file {{inputs.artifacts.variant_list_dir.path}}/chr${CHROM}.selected_variants.RData" >> assoc_single.config
+          CONFIG="assoc_single.config"
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > $CONFIG
+          echo "genome_build {{inputs.parameters.genome_build}}" >> $CONFIG
+          echo "gds_file \"{{inputs.parameters.file_prefix}} {{inputs.parameters.file_suffix}}\"" >> $CONFIG
+          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> $CONFIG
+          echo "segment_file {{inputs.artifacts.segment_file.path}}" >> $CONFIG
+          echo "variant_block_size {{inputs.parameters.variant_block_size}}" >> $CONFIG
+          echo "variant_include_file {{inputs.artifacts.variant_list_dir.path}}/chr${CHROM}.selected_variants.RData" >> $CONFIG
           if [[ "{{inputs.parameters.outcome_type}}" == "BINARY" ]]; then
-                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model.RData" >> assoc_single.config
-                echo "test_type \"score.spa\"" >> null_model.config
+                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model.RData" >> $CONFIG
+                echo "test_type \"score.spa\"" >> $CONFIG
           else
-                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> assoc_single.config
+                echo "null_model_file {{inputs.artifacts.null_model_results.path}}/{{inputs.parameters.out_prefix}}_null_model_invnorm.RData" >> $CONFIG
           fi
 
           if [[ "{{inputs.parameters.mac_threshold}}" == "0" ]]; then
-              echo "mac_threshold NA" >> assoc_single.config
-              echo "maf_threshold {{inputs.parameters.maf_threshold}}" >> assoc_single.config
+              echo "mac_threshold NA" >> $CONFIG
+              echo "maf_threshold {{inputs.parameters.maf_threshold}}" >> $CONFIG
           else
-              echo "mac_threshold {{inputs.parameters.mac_threshold}}" >> assoc_single.config
+              echo "mac_threshold {{inputs.parameters.mac_threshold}}" >> $CONFIG
           fi
 
-          cat assoc_single.config
+          cat $CONFIG
           ls -al
 
-          Rscript /usr/local/analysis_pipeline/R/assoc_single.R assoc_single.config --chromosome $CHROM \
+          Rscript /usr/local/analysis_pipeline/R/assoc_single.R $CONFIG --chromosome $CHROM \
           --segment {{inputs.parameters.segment}} \
           --num_cores 1
 
