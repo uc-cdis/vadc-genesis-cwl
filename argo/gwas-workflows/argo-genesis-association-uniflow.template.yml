@@ -1150,7 +1150,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.1.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
