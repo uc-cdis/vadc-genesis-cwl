@@ -623,30 +623,32 @@ spec:
           export NSLOTS=2
           cd /mnt/vol
 
-          echo "out_prefix {{inputs.parameters.out_prefix}}" > null_model.config
-          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> null_model.config
-          echo "outcome {{inputs.parameters.outcome}}" >> null_model.config
+          CONFIG="null_model.config"
+
+          echo "out_prefix {{inputs.parameters.out_prefix}}" > $CONFIG
+          echo "phenotype_file {{inputs.artifacts.phenotype_file.path}}" >> $CONFIG
+          echo "outcome {{inputs.parameters.outcome}}" >> $CONFIG
           if [[ "{{inputs.parameters.outcome_type}}" == "BINARY" ]]; then
-              echo "family \"binomial\"" >> null_model.config
+              echo "family \"binomial\"" >> $CONFIG
           else
-              echo "family \"gaussian\"" >> null_model.config
+              echo "family \"gaussian\"" >> $CONFIG
           fi
-          echo "n_pcs {{inputs.parameters.n_pcs}}" >> null_model.config
-          echo "pca_file {{inputs.parameters.pca_file}}" >> null_model.config
-          echo "relatedness_matrix_file {{inputs.parameters.relatedness_matrix_file}}" >> null_model.config
+          echo "n_pcs {{inputs.parameters.n_pcs}}" >> $CONFIG
+          echo "pca_file {{inputs.parameters.pca_file}}" >> $CONFIG
+          echo "relatedness_matrix_file {{inputs.parameters.relatedness_matrix_file}}" >> $CONFIG
 
           if [[ -z "{{inputs.parameters.covariates}}" ]]; then
               echo "No covariates provided."
           else
-              echo "covars \"{{inputs.parameters.covariates}}\"" >> null_model.config
+              echo "covars \"{{inputs.parameters.covariates}}\"" >> $CONFIG
           fi
-          echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> null_model.config
+          echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> $CONFIG
 
           set -xe
-          cat null_model.config
+          cat $CONFIG
 
-          Rscript /usr/local/analysis_pipeline/R/null_model.R null_model.config
-          Rscript /usr/local/analysis_pipeline/R/null_model_report.R null_model.config --version 2.12.0
+          Rscript /usr/local/analysis_pipeline/R/null_model.R $CONFIG
+          Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0
           ls -al
 
           DATADIR={{inputs.parameters.out_prefix}}_datadir
