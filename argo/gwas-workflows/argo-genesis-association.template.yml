@@ -583,7 +583,7 @@ spec:
             path: "/mnt/vol/phenotypes.Rdata"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "OnError"
 
       script:
         image: quay.io/cdis/topmed-master:2.12.0
@@ -797,7 +797,7 @@ spec:
             path: "/mnt/vol/variant_lists"
       retryStrategy:
         limit: "5"
-        retryPolicy: "Always"
+        retryPolicy: "OnError"
 
       script:
         image: quay.io/cdis/topmed-master:2.12.0
