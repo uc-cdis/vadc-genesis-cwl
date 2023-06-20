@@ -339,6 +339,9 @@ spec:
       inputs:
         parameters:
           - name: variables
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
