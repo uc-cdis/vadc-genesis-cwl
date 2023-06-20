@@ -280,6 +280,27 @@ spec:
                   s3:
                     key: "{{workflow.name}}/single_assoc_combined/{{inputs.parameters.out_prefix}}_chr{{item}}.RData"
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
+          - name: combine-pheweb
+            template: combine-pheweb
+            dependencies: [annotate-statistics]
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+              artifacts:
+                - name: per_chrom_objs
+                  s3:
+                    key: "{{workflow.name}}/pheweb_objs"
+          - name: generate-pheweb-json
+            template: generate-pheweb-json
+            dependencies: [combine-pheweb]
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+              artifacts:
+                - name: pheweb_stats_tsv
+                  from: "{{tasks.combine-pheweb.outputs.artifacts.pheweb_stats_tsv}}"
           - name: curate-gwas-hits
             template: curate-gwas-hits
             dependencies: [annotate-statistics]
@@ -320,7 +341,7 @@ spec:
                   from: "{{tasks.curate-gwas-hits.outputs.artifacts.below_cutoff_csv}}"
           - name: create-indexd-record
             template: create-indexd-record
-            dependencies: [archive-outputs]
+            dependencies: [archive-outputs, generate-pheweb-json]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -336,6 +357,8 @@ spec:
                   from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
                 - name: attrition_json
                   from: "{{tasks.generate-attrition-csv.outputs.artifacts.attrition_table_json}}"
+                - name: pheweb_json
+                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.pheweb_json}}"
 
     - name: pass-variables
       inputs:
@@ -1113,7 +1136,7 @@ spec:
           load("{{inputs.artifacts.raw_stats.path}}")
 
           # Load RSID meta
-          anno.df <- read.delim("/commons-data/kmhernan/marker_metadata/vadc_mvp_marker_annotation.chr{{inputs.parameters.chromosome}}.rsids.tsv.gz",
+          anno.df <- read.delim("/commons-data/kmhernan/marker_metadata/vadc_mvp_marker_annotation.chr{{inputs.parameters.chromosome}}.vep.tsv.gz",
                                 header=TRUE,
                                 stringsAsFactors=FALSE,
                                 sep="\t")
@@ -1135,6 +1158,23 @@ spec:
             row.names=FALSE,
             na="")
 
+          # Format for pheweb
+          if("SPA.pval" %in% names(annotated.summary.df)){
+            fmt.df <- annotated.summary.df %>%
+              mutate(chrom=gsub("chr([0-9X]+)", "\\1", chr)) %>%
+              select(chrom, pos, ref, alt, rsids, nearest_genes, SPA.pval, Est, Est.SE, freq) %>%
+              rename(pval=SPA.pval, beta=Est, sebeta=Est.SE, af=freq)
+          } else {
+            fmt.df <- annotated.summary.df %>%
+              mutate(chrom=gsub("chr([0-9X]+)", "\\1", chr)) %>%
+              select(chrom, pos, ref, alt, rsids, nearest_genes, Score.pval, Est, Est.SE, freq) %>%
+              rename(pval=Score.pval, beta=Est, sebeta=Est.SE, af=freq)
+          }
+
+          # write pheweb RData
+          save(fmt.df,
+            file="/mnt/vol/{{inputs.parameters.out_prefix}}.chr{{inputs.parameters.chromosome}}.annotated_summary.pheweb.RData")
+
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -1155,6 +1195,113 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/annotated_csvs/{{inputs.parameters.out_prefix}}_chr{{inputs.parameters.chromosome}}.annotated_summary.csv.gz"
+          - name: pheweb_stats_obj
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}.chr{{inputs.parameters.chromosome}}.annotated_summary.pheweb.RData"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/pheweb_objs/{{inputs.parameters.out_prefix}}.chr{{inputs.parameters.chromosome}}.annotated_summary.pheweb.RData"
+
+    - name: combine-pheweb
+      inputs:
+        parameters:
+          - name: out_prefix
+        artifacts:
+          - name: per_chrom_objs
+            path: "/mnt/vol/combined"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: [Rscript]
+        source: |
+          library(TopmedPipeline)
+
+          # Order files
+          files.all <- sapply(c(1:22, "X"), function(x){
+            paste0("{{inputs.artifacts.per_chrom_objs.path}}/",
+              "{{inputs.parameters.out_prefix}}.chr", x, ".annotated_summary.pheweb.RData")
+          })
+          files <- Filter(function(x) file.exists(x), files.all)
+
+          # Combine
+          comb.dat <- dplyr::bind_rows(lapply(unname(files), getobj))
+
+          # write pheweb TSV
+          write.table(comb.dat,
+            file=gzfile("/mnt/vol/{{inputs.parameters.out_prefix}}.combined_annotated_summary.pheweb.tsv.gz"),
+            quote=FALSE,
+            sep="\t",
+            row.names=FALSE,
+            na="")
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 4Gi
+          limits:
+            cpu: 500m
+            memory: 10Gi
+      outputs:
+        artifacts:
+          - name: pheweb_stats_tsv 
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}.combined_annotated_summary.pheweb.tsv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{inputs.parameters.out_prefix}}.combined_annotated_summary.pheweb.tsv.gz"
+
+    - name: generate-pheweb-json
+      inputs:
+        parameters:
+          - name: out_prefix
+        artifacts:
+          - name: pheweb_stats_tsv
+            path: "/mnt/vol/pheweb_stats.tsv.gz"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      container:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_stats_tsv.path}} \
+          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.json \
+          --out_plot_type manhattan"]
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: 500m
+            memory: 4Gi
+      outputs:
+        artifacts:
+          - name: pheweb_json
+            path: "/mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.json"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
+              key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
 
     - name: curate-gwas-hits
       inputs:
@@ -1277,6 +1424,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
           - name: attrition_json
             path: "/mnt/vol/{{workflow.name}}.attrition.json"
+          - name: pheweb_json
+            path: "/mnt/vol/pheweb.json"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1298,7 +1447,12 @@ spec:
                 --gwas_archive {{inputs.artifacts.attrition_json.path}} \
                 --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.attrition.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
-                -o /mnt/vol/did_attrition.json"]
+                -o /mnt/vol/did_attrition.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.pheweb_json.path}} \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_pheweb_json.json"]
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -1336,3 +1490,7 @@ spec:
             valueFrom:
               path: /mnt/vol/did_attrition.json
             globalName: attrition_json_index
+          - name: pheweb_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_json.json
+            globalName: pheweb_json_index
