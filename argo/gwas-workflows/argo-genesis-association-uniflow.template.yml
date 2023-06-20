@@ -441,7 +441,8 @@ spec:
           --outcome '{{inputs.parameters.outcome}}' \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
           --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
-          --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}}
+          --output_csv_prefix /mnt/vol/attrition_csvs/{{workflow.name}} \
+          --output_combined_json /mnt/vol/{{workflow.name}}.attrition.json
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -456,6 +457,20 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/attrition_csvs"
+          - name: attrition_table_json
+            path: /mnt/vol/{{workflow.name}}.attrition.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
+              key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
     
     - name: generate-gwas-metadata
       inputs:
