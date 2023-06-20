@@ -334,6 +334,8 @@ spec:
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
                 - name: manhattan_plot
                   from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
+                - name: attrition_json
+                  from: "{{tasks.generate-attrition-csv.outputs.artifacts.attrition_table_json}}"
 
     - name: pass-variables
       inputs:
@@ -441,7 +443,8 @@ spec:
           --outcome '{{inputs.parameters.outcome}}' \
           --variables_json {{inputs.artifacts.variables_validated.path}} \
           --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
-          --output_prefix /mnt/vol/attrition_csvs/{{workflow.name}}
+          --output_csv_prefix /mnt/vol/attrition_csvs/{{workflow.name}} \
+          --output_combined_json /mnt/vol/{{workflow.name}}.attrition.json
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -456,6 +459,20 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/attrition_csvs"
+          - name: attrition_table_json
+            path: /mnt/vol/{{workflow.name}}.attrition.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: argo-artifact-storage-downloadable 
+              key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
     
     - name: generate-gwas-metadata
       inputs:
@@ -1258,6 +1275,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}.zip"
           - name: manhattan_plot
             path: "/mnt/vol/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
+          - name: attrition_json
+            path: "/mnt/vol/{{workflow.name}}.attrition.json"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1274,7 +1293,12 @@ spec:
                 --gwas_archive {{inputs.artifacts.manhattan_plot.path}} \
                 --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
-                -o /mnt/vol/did_plot.json"]
+                -o /mnt/vol/did_plot.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.attrition_json.path}} \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.attrition.json \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_attrition.json"]
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -1308,3 +1332,7 @@ spec:
             valueFrom:
               path: /mnt/vol/did_plot.json
             globalName: manhattan_plot_index
+          - name: attrition_json_index
+            valueFrom:
+              path: /mnt/vol/did_attrition.json
+            globalName: attrition_json_index
