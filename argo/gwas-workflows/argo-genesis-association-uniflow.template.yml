@@ -334,6 +334,8 @@ spec:
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
                 - name: manhattan_plot
                   from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
+                - name: attrition_json
+                  from: "{{tasks.generate-attrition-csv.outputs.artifacts.attrition_table_json}}"
 
     - name: pass-variables
       inputs:
@@ -1273,6 +1275,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}.zip"
           - name: manhattan_plot
             path: "/mnt/vol/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
+          - name: attrition_json
+            path: "/mnt/vol/{{workflow.name}}.attrition.json"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -1289,7 +1293,12 @@ spec:
                 --gwas_archive {{inputs.artifacts.manhattan_plot.path}} \
                 --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
-                -o /mnt/vol/did_plot.json"]
+                -o /mnt/vol/did_plot.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.attrition_json.path}} \
+                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.attrition.json \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_attrition.json"]
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -1323,3 +1332,7 @@ spec:
             valueFrom:
               path: /mnt/vol/did_plot.json
             globalName: manhattan_plot_index
+          - name: attrition_json_index
+            valueFrom:
+              path: /mnt/vol/did_attrition.json
+            globalName: attrition_json_index
