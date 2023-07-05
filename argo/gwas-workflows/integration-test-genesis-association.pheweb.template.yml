@@ -178,8 +178,10 @@ spec:
                   from: "{{tasks.create-figure.outputs.artifacts.simulated_plot}}"
                 - name: attrition_json
                   from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_json}}"
-                - name: pheweb_json
-                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.json_for_pheweb}}"
+                - name: manhattan_pheweb_json
+                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.manhattan_json_for_pheweb}}"
+                - name: qq_pheweb_json
+                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.qq_json_for_pheweb}}"
 
     - name: pass-variables
       inputs:
@@ -213,7 +215,7 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -265,7 +267,7 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -358,7 +360,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -401,7 +403,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -539,27 +541,46 @@ spec:
           - name: pheweb_input_tsv
             path: /mnt/vol/pheweb.tsv.gz
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
           /env/bin/vadc-gwas-tools GetPheWebPlotJson \
           --in_tsv {{inputs.artifacts.pheweb_input_tsv.path}} \
-          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.json \
+          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
           --out_plot_type manhattan
+
+          /env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_input_tsv.path}} \
+          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+          --out_plot_type qq
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
       outputs:
         artifacts:
-          - name: json_for_pheweb
-            path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.json
+          - name: manhattan_json_for_pheweb
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json
             archive:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
               bucket: second-argo-bucket
-              key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.json"
+              key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+          - name: qq_json_for_pheweb
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: second-argo-bucket
+              key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.qq.json"
               accessKeySecret:
                 name: argo-s3-creds
                 key: AccessKeyId
@@ -580,10 +601,12 @@ spec:
             path: "/mnt/vol/test.png"
           - name: attrition_json
             path: "/mnt/vol/{{workflow.name}}.attrition.json"
-          - name: pheweb_json
-            path: "/mnt/vol/pheweb.json"
+          - name: manhattan_pheweb_json
+            path: "/mnt/vol/pheweb.manhattan.json"
+          - name: qq_pheweb_json
+            path: "/mnt/vol/pheweb.qq.json"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -606,10 +629,16 @@ spec:
           -o /mnt/vol/did_attrition.json
 
           /env/bin/vadc-gwas-tools CreateIndexdRecord \
-          --gwas_archive {{inputs.artifacts.pheweb_json.path}} \
-          --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.json \
+          --gwas_archive {{inputs.artifacts.manhattan_pheweb_json.path}} \
+          --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
           --arborist_resource {{inputs.parameters.arborist_resource}} \
-          -o /mnt/vol/did_pheweb_json.json
+          -o /mnt/vol/did_pheweb_manhattan_json.json
+
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.qq_pheweb_json.path}} \
+          --s3_uri s3://second-argo-bucket/{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_pheweb_qq_json.json
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -647,7 +676,11 @@ spec:
             valueFrom:
               path: /mnt/vol/did_attrition.json
             globalName: attrition_json_index
-          - name: pheweb_json_index
+          - name: pheweb_manhattan_json_index
             valueFrom:
-              path: /mnt/vol/did_pheweb_json.json
-            globalName: pheweb_json_index
+              path: /mnt/vol/did_pheweb_manhattan_json.json
+            globalName: pheweb_manhattan_json_index
+          - name: pheweb_qq_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_qq_json.json
+            globalName: pheweb_qq_json_index
