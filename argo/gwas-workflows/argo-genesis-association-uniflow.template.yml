@@ -7,7 +7,7 @@ spec:
     secondsAfterCompletion: 10
   podMetadata:
     annotations:
-      karpenter.sh/do-not-evict: 'true'
+      karpenter.sh/do-not-evict: "true"
   entrypoint: gwas-workflow
   templates:
     - name: gwas-workflow
