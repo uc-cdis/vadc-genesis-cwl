@@ -660,7 +660,7 @@ spec:
             path: "/mnt/vol/phenotypes.Rdata"
       retryStrategy:
         limit: "3"
-        retryPolicy: "OnError"
+        retryPolicy: "Always"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -922,7 +922,7 @@ spec:
             path: "/mnt/vol/variant_lists"
       retryStrategy:
         limit: "5"
-        retryPolicy: "OnError"
+        retryPolicy: "Always"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
