@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-wrapper-
+  generateName: gwas-template-sex-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
@@ -42,14 +42,14 @@ spec:
       - name: variables
         value: |
           [ 
-            {"variable_type": "custom_dichotomous", "provided_name": "my_dichotomous_test", "cohort_ids": [101, 100]},
-            {"variable_type": "concept", "concept_id": 2000006886, "concept_name": "Average weight [MVP Vitals]"}
+            {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"},
+            {"variable_type": "concept", "concept_id": 2000006883, "concept_name": "Average  diastolic BP [MVP Vitals]"}
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          {"variable_type": "custom_dichotomous", "provided_name": "my_dichotomous_test", "cohort_ids": [101, 100]}
+          {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"}
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -77,7 +77,7 @@ spec:
       - name: template_version
         value: gwas-template-uniflow
       - name: workflow_name
-        value: "test-unified-wf-chr-22"
+        value: "test-combine-sex-info"
       - name: gds_files
         value: |-
           [
@@ -105,6 +105,8 @@ spec:
             "/commons-data/gds/chr22.merged.vcf.gz.gds",
             "/commons-data/gds/chrX.merged.vcf.gz.gds"
           ]
+      - name: sex_table
+        value: /commons-data/mvp_sex_table.csv
   volumes:
     - name: gateway
       persistentVolumeClaim:
@@ -113,4 +115,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-uniflow
+    name: gwas-template-sex-added
