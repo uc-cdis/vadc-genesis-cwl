@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-sex-wrapper-
+  generateName: gwas-template-citation-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
@@ -41,17 +41,20 @@ spec:
         value: 3
       - name: variables
         value: |
-          [ 
-            {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"},
-            {"variable_type": "concept", "concept_id": 2000006883, "concept_name": "Average  diastolic BP [MVP Vitals]"}
+          [
+            {"variable_type": "concept", "concept_id": 2000000969, "concept_name": "Median Red Blood Cell [MVP Labs]"}
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"}
+          {"variable_type": "concept", "concept_id": 2000000969, "concept_name": "Median Red Blood Cell [MVP Labs]"}
       - name: pca_file
         value: /commons-data/pcs.RData
+      - name: pipeline_template
+        value: /commons-data/vadc_citation_template.txt
+      - name: completed_pipeline_template
+        value: completed_vadc_citation_template.txt
       - name: relatedness_matrix_file
         value: /commons-data/KINGmatDeg3.RData
       - name: genome_build
@@ -115,4 +118,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-sex-added
+    name: gwas-template-citation-added
