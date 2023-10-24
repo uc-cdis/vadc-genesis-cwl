@@ -7,16 +7,16 @@ metadata:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-qiongl-40uchicago-2eedu"
+    gen3username: "user-fan1-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
     strategy: OnPodSuccess
   podMetadata:
     labels:
-      gen3username: "user-qiongl-40uchicago-2eedu"
+      gen3username: "user-fan1-40uchicago-2eedu"
     annotations:
-      gen3username: "qiongl@uchicago.edu"
+      gen3username: "fan1@uchicago.edu"
   arguments:
     parameters:
       - name: internal_api_env
@@ -47,6 +47,10 @@ spec:
           {"variable_type": "custom_dichotomous", "provided_name": "test123", "cohort_ids": [300, 301]}
       - name: pca_file
         value: /commons-data/pcs.RData
+      - name: pipeline_template
+        value: /commons-data/vadc_citation_template.txt
+      - name: completed_pipeline_template
+        value: completed_vadc_citation_template.txt
       - name: relatedness_matrix_file
         value: /commons-data/KINGmatDeg3.RData
       - name: genome_build
@@ -106,5 +110,8 @@ spec:
     - name: workdir
       emptyDir:
         sizeLimit: "3Gi"
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: parallel-test-pvc
   workflowTemplateRef:
     name: gwas-template-integration-test

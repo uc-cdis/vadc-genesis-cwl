@@ -20,6 +20,8 @@ spec:
           - name: out_prefix
           - name: outcome
           - name: pca_file
+          - name: pipeline_template
+          - name: completed_pipeline_template
           - name: relatedness_matrix_file
           - name: genome_build
             enum:
@@ -114,6 +116,10 @@ spec:
                   value: "{{inputs.parameters.pvalue_cutoff}}"
                 - name: top_n_hits
                   value: "{{inputs.parameters.top_n_hits}}"
+                - name: pipeline_template
+                  value: "{{inputs.parameters.pipeline_template}}"
+                - name: completed_pipeline_template
+                  value: "{{inputs.parameters.completed_pipeline_template}}"
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
@@ -147,6 +153,8 @@ spec:
                   from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_directory}}"
                 - name: gwas_metadata
                   from: "{{tasks.get-gwas-metadata.outputs.artifacts.gwas_metadata}}"
+                - name: completed_pipeline_template
+                  from: "{{tasks.get-gwas-metadata.outputs.artifacts.completed_pipeline_template}}"
           - name: create-indexd-record
             template: create-indexd-record
             dependencies: [archive-outputs]
@@ -333,11 +341,13 @@ spec:
           - name: hare_population
           - name: pvalue_cutoff
           - name: top_n_hits
+          - name: pipeline_template
+          - name: completed_pipeline_template
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.0.1
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feature_VADC-654
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -352,10 +362,14 @@ spec:
           --hare_population "{{inputs.parameters.hare_population}}" \
           --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
           --top_n_hits {{inputs.parameters.top_n_hits}} \
-          --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
+          --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml \
+          --pipeline_template {{inputs.parameters.pipeline_template}} \
+          --completed_pipeline_template /mnt/vol/{{workflow.name}}.completed_pipeline_template.txt
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -367,6 +381,12 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.gwas_metadata.yaml"
+          - name: completed_pipeline_template
+            path: /mnt/vol/{{workflow.name}}.completed_pipeline_template.txt
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.completed_pipeline_template.txt"
 
     - name: get-attrition-csv
       inputs:
@@ -417,6 +437,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/attrition_tables"
           - name: gwas_metadata
             path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.gwas_metadata.yaml"
+          - name: completed_pipeline_template
+            path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.completed_pipeline_template.txt"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
