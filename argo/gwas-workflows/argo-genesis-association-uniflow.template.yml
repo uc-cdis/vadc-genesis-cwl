@@ -29,7 +29,6 @@ spec:
           - name: pca_file
           - name: relatedness_matrix_file
           - name: pipeline_template
-          - name: completed_pipeline_template
           - name: genome_build
             enum:
               - "hg38"
@@ -174,8 +173,6 @@ spec:
                   value: "{{inputs.parameters.top_n_hits}}"
                 - name: pipeline_template
                   value: "{{inputs.parameters.pipeline_template}}"
-                - name: completed_pipeline_template
-                  value: "{{inputs.parameters.completed_pipeline_template}}"
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
@@ -708,7 +705,6 @@ spec:
           - name: pvalue_cutoff
           - name: top_n_hits
           - name: pipeline_template
-          - name: completed_pipeline_template
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
