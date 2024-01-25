@@ -504,7 +504,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable 
+              bucket: argo-artifact-storage-downloadable-2024 
               key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1175,7 +1175,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable 
+              bucket: argo-artifact-storage-downloadable-2024 
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1378,7 +1378,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable 
+              bucket: argo-artifact-storage-downloadable-2024 
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1392,7 +1392,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable 
+              bucket: argo-artifact-storage-downloadable-2024 
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1500,7 +1500,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable 
+              bucket: argo-artifact-storage-downloadable-2024 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1535,27 +1535,27 @@ spec:
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.zip \
+                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_archive.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.manhattan_plot.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
+                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_plot.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.attrition_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.attrition.json \
+                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.attrition.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_attrition.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.pheweb_manhattan_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
+                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_pheweb_manhattan_json.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.pheweb_qq_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_pheweb_qq_json.json"]
         env:
