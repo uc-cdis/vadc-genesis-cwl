@@ -1,0 +1,738 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: gwas-template-integration-buckets
+spec:
+  ttlStrategy:
+    secondsAfterCompletion: 10
+  entrypoint: gwas-workflow
+  templates:
+    - name: gwas-workflow
+      inputs:
+        parameters:
+          - name: internal_api_env
+          - name: source_id
+          - name: source_population_cohort
+          - name: hare_concept_id
+          - name: hare_population
+          - name: n_pcs
+          - name: variables
+          - name: out_prefix
+          - name: outcome
+          - name: pca_file
+          - name: relatedness_matrix_file
+          - name: genome_build
+            enum:
+              - "hg38"
+              - "hg19"
+            default: "hg19"
+          - name: n_segments
+            default: 0
+          - name: segment_length
+            default: 10000
+          - name: variant_block_size
+            default: 1024
+          - name: mac_threshold
+          - name: maf_threshold
+          - name: imputation_score_cutoff
+            default: 0.03
+          - name: top_n_hits
+            default: 100
+          - name: pvalue_cutoff
+            default: 5e-8
+          - name: gds_files
+      dag:
+        tasks:
+          - name: get-downloadable-bucket
+            template: get-downloadable-bucket          
+          - name: pass-variables
+            template: pass-variables
+            arguments:
+              parameters:
+                - name: variables
+                  value: "{{inputs.parameters.variables}}"
+          - name: process-variables
+            template: process-variables
+            dependencies: [pass-variables]
+            arguments:
+              parameters:
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+              artifacts:
+                - name: variables_json
+                  from: "{{tasks.pass-variables.outputs.artifacts.variables_json}}"
+          - name: get-pheno-csv
+            template: get-pheno-csv
+            dependencies: [process-variables]
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+              artifacts:
+                - name: variables_with_hare_json
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_with_hare_json}}"
+          - name: generate-pheno
+            template: generate-pheno
+            dependencies: [get-pheno-csv]
+            arguments:
+              parameters:
+                - name: prefixed_hare_concept_id
+                  value: "ID_{{inputs.parameters.hare_concept_id}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
+              artifacts:
+                - name: pheno_csv
+                  from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
+          - name: get-gwas-metadata
+            template: get-gwas-metadata
+            dependencies: [process-variables]
+            arguments:
+              parameters:
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+                - name: n_pcs
+                  value: "{{inputs.parameters.n_pcs}}"
+                - name: maf_threshold
+                  value: "{{inputs.parameters.maf_threshold}}"
+                - name: imputation_score_cutoff
+                  value: "{{inputs.parameters.imputation_score_cutoff}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
+                - name: pvalue_cutoff
+                  value: "{{inputs.parameters.pvalue_cutoff}}"
+                - name: top_n_hits
+                  value: "{{inputs.parameters.top_n_hits}}"
+              artifacts:
+                - name: variables_validated
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
+          - name: get-attrition-csv
+            template: get-attrition-csv
+            dependencies: [get-downloadable-bucket, process-variables]
+            arguments:
+              parameters:
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: variables_validated
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
+          - name: create-figure
+            template: create-figure
+            dependencies: [get-downloadable-bucket, get-attrition-csv]
+            arguments:
+              parameters:
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+          - name: archive-outputs
+            template: archive-outputs
+            dependencies: [get-downloadable-bucket, get-gwas-metadata, get-attrition-csv]
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: attrition_csvs
+                  from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_directory}}"
+                - name: gwas_metadata
+                  from: "{{tasks.get-gwas-metadata.outputs.artifacts.gwas_metadata}}"
+          - name: generate-pheweb-json
+            dependencies: [get-downloadable-bucket]
+            template: pheweb-json
+            arguments:
+              parameters:
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: pheweb_input_tsv
+                  s3:
+                    key: "public-pheweb-input-tsv/meta_Single_lgddimer.for_pheweb.tsv.gz"
+          - name: create-indexd-record
+            template: create-indexd-record
+            dependencies: [get-downloadable-bucket, archive-outputs, create-figure, generate-pheweb-json]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "/programs/DEV/projects/test"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: gwas_archive
+                  from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
+                - name: simulated_plot
+                  from: "{{tasks.create-figure.outputs.artifacts.simulated_plot}}"
+                - name: attrition_json
+                  from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_json}}"
+                - name: manhattan_pheweb_json
+                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.manhattan_json_for_pheweb}}"
+                - name: qq_pheweb_json
+                  from: "{{tasks.generate-pheweb-json.outputs.artifacts.qq_json_for_pheweb}}"
+
+    - name: get-downloadable-bucket
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
+          echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: DOWNLOADABLE_BUCKET  # name of env var
+          valueFrom:
+            secretKeyRef:
+              name: argo-template-values-secret     # name of an existing k8s secret
+              key: DOWNLOADABLE_BUCKET     # 'key' subcomponent of the secret      
+      outputs:
+        parameters:
+          - name: downloadable_bucket
+            valueFrom:
+              path: "/mnt/vol/downloadable_bucket.txt" 
+
+    - name: pass-variables
+      inputs:
+        parameters:
+          - name: variables
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [sh]
+        source: |
+            echo '{{inputs.parameters.variables}}'|jq -r . > /mnt/vol/variables.json
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
+            archive: 
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables.json"
+
+    - name: process-variables
+      inputs:
+        parameters:
+          - name: internal_api_env
+          - name: hare_concept_id
+          - name: outcome
+        artifacts:
+          - name: variables_json
+            path: /mnt/vol/variables.json
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        source: |
+          /env/bin/vadc-gwas-tools ProcessInputVariables \
+          --raw_variables_json {{inputs.artifacts.variables_json.path}} \
+          --hare_concept_id {{inputs.parameters.hare_concept_id}} \
+          --outcome '{{inputs.parameters.outcome}}' \
+          --output_raw_variable_json /mnt/vol/variables_validated.json \
+          --output_variable_json_w_hare /mnt/vol/variables_with_hare.json \
+          --output_other_json /mnt/vol/other_variable_data.json
+        volumeMounts:
+            - name: workdir
+              mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        parameters:
+          - name: other_variable_data
+            valueFrom:
+              path: /mnt/vol/other_variable_data.json
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables_validated.json"
+          - name: variables_with_hare_json
+            path: /mnt/vol/variables_with_hare.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.variables_with_hare.json"
+          - name: other_variable_data_json
+            path: /mnt/vol/other_variable_data.json
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.other_variable_data.json"
+
+    - name: get-pheno-csv
+      inputs:
+        parameters:
+          - name: source_id
+          - name: internal_api_env
+          - name: source_population_cohort
+        artifacts:
+          - name: variables_with_hare_json
+            path: /mnt/vol/variables_with_hare.json
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools GetCohortPheno \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --variables_json {{inputs.artifacts.variables_with_hare_json.path}} \
+          --output /mnt/vol/{{workflow.name}}.pheno.csv.gz
+        volumeMounts:
+            - name: workdir
+              mountPath: /mnt/vol
+        env: 
+            - name: GEN3_ENVIRONMENT
+              value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: pheno_csv
+            path: /mnt/vol/{{workflow.name}}.pheno.csv.gz
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{workflow.name}}.pheno.csv.gz"
+
+    - name: generate-pheno
+      inputs:
+        parameters:
+          - name: prefixed_hare_concept_id
+          - name: hare_population
+        artifacts:
+          - name: pheno_csv
+            mode: 0777
+            path: "/mnt/vol/phenotypes.csv.gz"
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: [Rscript]
+        source: |
+          library(Biobase)
+
+          dat.csv <- read.csv(gzfile("{{inputs.artifacts.pheno_csv.path}}"),
+                              stringsAsFactors=FALSE, na.strings=c("NA", ""))
+          stopifnot("sample.id" %in% names(dat.csv))
+          dat.csv$sample.id <- as.character(dat.csv$sample.id)
+
+          # Filter to HARE population
+          dat.csv <- subset(dat.csv, {{inputs.parameters.prefixed_hare_concept_id}} == "{{inputs.parameters.hare_population}}")
+
+          # Remove NAs
+          dat.csv <- na.omit(dat.csv)
+
+          # Convert to AnnotatedDataFrame
+          annot <- AnnotatedDataFrame(dat.csv)
+          stopifnot("sample.id" %in% varLabels(annot))
+          save(annot, file="/mnt/vol/phenotypes.Rdata")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+      outputs:
+        artifacts:
+          - name: phenotype_file
+            path: "/mnt/vol/phenotypes.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
+
+    - name: get-gwas-metadata
+      inputs:
+        parameters:
+          - name: source_id
+          - name: source_population_cohort
+          - name: outcome
+          - name: internal_api_env
+          - name: n_pcs
+          - name: maf_threshold
+          - name: imputation_score_cutoff
+          - name: hare_population
+          - name: pvalue_cutoff
+          - name: top_n_hits
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools GetGwasMetadata \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --variables_json {{inputs.artifacts.variables_validated.path}} \
+          --outcome '{{inputs.parameters.outcome}}' \
+          --n_pcs {{inputs.parameters.n_pcs}} \
+          --maf_threshold {{inputs.parameters.maf_threshold}} \
+          --imputation_score_cutoff {{inputs.parameters.imputation_score_cutoff}} \
+          --hare_population "{{inputs.parameters.hare_population}}" \
+          --pvalue_cutoff {{inputs.parameters.pvalue_cutoff}} \
+          --top_n_hits {{inputs.parameters.top_n_hits}} \
+          --output /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: gwas_metadata
+            path: /mnt/vol/{{workflow.name}}.gwas_metadata.yaml
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/{{workflow.name}}.gwas_metadata.yaml"
+
+    - name: get-attrition-csv
+      inputs:
+        parameters:
+          - name: source_id
+          - name: internal_api_env
+          - name: hare_concept_id
+          - name: source_population_cohort
+          - name: outcome
+          - name: downloadable_bucket
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        source: |
+          mkdir /mnt/vol/attrition_csvs
+          /env/bin/vadc-gwas-tools GetCohortAttritionTable \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --outcome '{{inputs.parameters.outcome}}' \
+          --variables_json {{inputs.artifacts.variables_validated.path}} \
+          --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
+          --output_csv_prefix /mnt/vol/attrition_csvs/{{workflow.name}} \
+          --output_combined_json /mnt/vol/{{workflow.name}}.attrition.json
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: attrition_table_directory
+            path: /mnt/vol/attrition_csvs
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/attrition_csvs"
+          - name: attrition_table_json
+            path: /mnt/vol/{{workflow.name}}.attrition.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: create-figure
+      inputs:
+        parameters:
+          - name: downloadable_bucket
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command: [Rscript]
+        source: |
+          library(ggplot2)
+
+          sim.dat <- as.data.frame(rnorm(1000))
+          names(sim.dat) <- c("X")
+          head(sim.dat)
+
+          p <- ggplot(sim.dat, aes(x=X)) +
+            geom_histogram(bins=30)
+          ggsave(filename="/mnt/vol/test.png", plot=p, width=10, height=5)
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 8Gi
+      outputs:
+        artifacts:
+          - name: simulated_plot
+            path: "/mnt/vol/test.png"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/test.png"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: archive-outputs
+      inputs:
+        parameters:
+          - name: out_prefix
+          - name: downloadable_bucket
+        artifacts:
+          - name: attrition_csvs
+            mode: 0777
+            path: "/mnt/vol/{{workflow.name}}/attrition_tables"
+          - name: gwas_metadata
+            path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.gwas_metadata.yaml"
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          cd /mnt/vol
+          zip -r {{workflow.name}}.zip {{workflow.name}}/
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      outputs:
+        artifacts:
+          - name: gwas_archive
+            path: "/mnt/vol/{{workflow.name}}.zip"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/{{workflow.name}}.zip"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: pheweb-json
+      inputs:
+        parameters:
+          - name: out_prefix
+          - name: downloadable_bucket
+        artifacts:
+          - name: pheweb_input_tsv
+            path: /mnt/vol/pheweb.tsv.gz
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        source: |
+          /env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_input_tsv.path}} \
+          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
+          --out_plot_type manhattan
+
+          /env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_input_tsv.path}} \
+          --out_json /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+          --out_plot_type qq
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: manhattan_json_for_pheweb
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+          - name: qq_json_for_pheweb
+            path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.qq.json"
+              accessKeySecret:
+                name: argo-s3-creds
+                key: AccessKeyId
+              secretKeySecret:
+                name: argo-s3-creds
+                key: SecretAccessKey
+
+    - name: create-indexd-record
+      inputs:
+        parameters:
+          - name: arborist_resource
+          - name: internal_api_env
+          - name: out_prefix
+          - name: downloadable_bucket
+        artifacts:
+          - name: gwas_archive
+            path: "/mnt/vol/{{workflow.name}}.zip"
+          - name: simulated_plot
+            path: "/mnt/vol/test.png"
+          - name: attrition_json
+            path: "/mnt/vol/{{workflow.name}}.attrition.json"
+          - name: manhattan_pheweb_json
+            path: "/mnt/vol/pheweb.manhattan.json"
+          - name: qq_pheweb_json
+            path: "/mnt/vol/pheweb.qq.json"
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        imagePullPolicy: IfNotPresent
+        command: [/bin/bash]
+        source: |
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
+          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.zip \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_archive.json
+
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.simulated_plot.path}} \
+          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/test.png \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_plot.json
+
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.attrition_json.path}} \
+          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.attrition.json \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_attrition.json
+
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.manhattan_pheweb_json.path}} \
+          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_pheweb_manhattan_json.json
+
+          /env/bin/vadc-gwas-tools CreateIndexdRecord \
+          --gwas_archive {{inputs.artifacts.qq_pheweb_json.path}} \
+          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+          --arborist_resource {{inputs.parameters.arborist_resource}} \
+          -o /mnt/vol/did_pheweb_qq_json.json
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      outputs:
+        parameters:
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did_archive.json
+            globalName: gwas_archive_index
+          - name: simulated_plot_index
+            valueFrom:
+              path: /mnt/vol/did_plot.json
+            globalName: manhattan_plot_index
+          - name: attrition_json_index
+            valueFrom:
+              path: /mnt/vol/did_attrition.json
+            globalName: attrition_json_index
+          - name: pheweb_manhattan_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_manhattan_json.json
+            globalName: pheweb_manhattan_json_index
+          - name: pheweb_qq_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_qq_json.json
+            globalName: pheweb_qq_json_index
