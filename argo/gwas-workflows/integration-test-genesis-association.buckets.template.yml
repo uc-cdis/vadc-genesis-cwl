@@ -204,8 +204,13 @@ spec:
         imagePullPolicy: IfNotPresent
         command: [/bin/sh]
         source: |
-          echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
-          echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+          if [ -z $DOWNLOADABLE_BUCKET ]; then
+            echo "Downloadable bucket is not found or set to empty string"
+            exit 1
+          else
+            echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
+            echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+          fi
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
