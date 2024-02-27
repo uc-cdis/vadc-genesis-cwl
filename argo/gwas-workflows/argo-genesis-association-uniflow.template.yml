@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-sex-added
+  name: gwas-template-configurable-buckets
 spec:
   ttlStrategy:
     secondsAfterCompletion: 10
@@ -53,6 +53,8 @@ spec:
 
       dag:
         tasks:
+          - name: get-downloadable-bucket
+            template: get-downloadable-bucket
           - name: pass-variables
             template: pass-variables
             arguments:
@@ -75,7 +77,7 @@ spec:
                   from: "{{tasks.pass-variables.outputs.artifacts.variables_json}}"
           - name: generate-attrition-csv
             template: generate-attrition-csv
-            dependencies: [process-variables]
+            dependencies: [get-downloadable-bucket, process-variables]
             arguments:
               parameters:
                 - name: internal_api_env
@@ -88,6 +90,8 @@ spec:
                   value: "{{inputs.parameters.source_population_cohort}}"
                 - name: outcome
                   value: "{{inputs.parameters.outcome}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
@@ -269,13 +273,15 @@ spec:
             withParam: "{{=toJson(jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
           - name: run-plots
             template: run-plots
-            dependencies: [combine-shards]
+            dependencies: [get-downloadable-bucket, combine-shards]
             arguments:
               parameters:
                 - name: chromosomes
                   value: "{{=sprig.join(' ', jsonpath(tasks['filter-segments'].outputs.result, '$.chromosomes'))}}"
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
                 - name: combined
                   s3:
@@ -307,11 +313,13 @@ spec:
                     key: "{{workflow.name}}/pheweb_objs"
           - name: generate-pheweb-json
             template: generate-pheweb-json
-            dependencies: [combine-pheweb]
+            dependencies: [get-downloadable-bucket, combine-pheweb]
             arguments:
               parameters:
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
                 - name: pheweb_stats_tsv
                   from: "{{tasks.combine-pheweb.outputs.artifacts.pheweb_stats_tsv}}"
@@ -332,11 +340,13 @@ spec:
                     key: "{{workflow.name}}/annotated_csvs"
           - name: archive-outputs
             template: archive-outputs
-            dependencies: [run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv, curate-gwas-hits]
+            dependencies: [get-downloadable-bucket, run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv, curate-gwas-hits]
             arguments:
               parameters:
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
                 - name: manhattan_plot
                   from: "{{tasks.run-plots.outputs.artifacts.manhattan_plot}}"
@@ -355,7 +365,7 @@ spec:
                   from: "{{tasks.curate-gwas-hits.outputs.artifacts.below_cutoff_csv}}"
           - name: create-indexd-record
             template: create-indexd-record
-            dependencies: [archive-outputs, generate-pheweb-json]
+            dependencies: [get-downloadable-bucket, archive-outputs, generate-pheweb-json]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -364,6 +374,8 @@ spec:
                   value: "{{inputs.parameters.internal_api_env}}"
                 - name: out_prefix
                   value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
                 - name: gwas_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
@@ -375,6 +387,41 @@ spec:
                   from: "{{tasks.generate-pheweb-json.outputs.artifacts.pheweb_manhattan_json}}"
                 - name: pheweb_qq_json
                   from: "{{tasks.generate-pheweb-json.outputs.artifacts.pheweb_qq_json}}"
+
+    - name: get-downloadable-bucket
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          if [ -z $DOWNLOADABLE_BUCKET ]; then
+            echo "Downloadable bucket is not found or set to empty string"
+            exit 1
+          else
+            echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
+            echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+          fi
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: DOWNLOADABLE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: argo-template-values-secret
+              key: DOWNLOADABLE_BUCKET
+      outputs:
+        parameters:
+          - name: downloadable_bucket
+            valueFrom:
+              path: "/mnt/vol/downloadable_bucket.txt"
 
     - name: pass-variables
       inputs:
@@ -464,6 +511,7 @@ spec:
           - name: hare_concept_id
           - name: source_population_cohort
           - name: outcome
+          - name: downloadable_bucket
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
@@ -504,7 +552,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable-2024 
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1129,6 +1177,7 @@ spec:
         parameters:
           - name: chromosomes
           - name: out_prefix
+          - name: downloadable_bucket
         artifacts:
           - name: combined
             path: "/mnt/vol/combined"
@@ -1175,7 +1224,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable-2024 
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1340,6 +1389,7 @@ spec:
       inputs:
         parameters:
           - name: out_prefix
+          - name: downloadable_bucket
         artifacts:
           - name: pheweb_stats_tsv
             path: "/mnt/vol/pheweb_stats.tsv.gz"
@@ -1378,7 +1428,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable-2024 
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1392,7 +1442,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable-2024 
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1454,6 +1504,7 @@ spec:
       inputs:
         parameters:
           - name: out_prefix
+          - name: downloadable_bucket
         artifacts:
           - name: manhattan_plot
             path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}_manhattan.png"
@@ -1500,7 +1551,7 @@ spec:
               none: {}
             s3:
               endpoint: s3.amazonaws.com
-              bucket: argo-artifact-storage-downloadable-2024 
+              bucket: "{{inputs.parameters.downloadable_bucket}}" 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
               accessKeySecret:
                 name: argo-s3-creds
@@ -1515,6 +1566,7 @@ spec:
           - name: arborist_resource
           - name: internal_api_env
           - name: out_prefix
+          - name: downloadable_bucket
         artifacts:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.zip"
@@ -1535,27 +1587,27 @@ spec:
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.gwas_archive.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.zip \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_archive.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.manhattan_plot.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_plot.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.attrition_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.attrition.json \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.attrition.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_attrition.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.pheweb_manhattan_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_pheweb_manhattan_json.json && \
                 /env/bin/vadc-gwas-tools CreateIndexdRecord \
                 --gwas_archive {{inputs.artifacts.pheweb_qq_json.path}} \
-                --s3_uri s3://argo-artifact-storage-downloadable-2024/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
                 -o /mnt/vol/did_pheweb_qq_json.json"]
         env:

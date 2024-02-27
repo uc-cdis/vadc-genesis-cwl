@@ -1,13 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-sex-wrapper-
+  generateName: gwas-template-buckets-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-fan1-40uchicago-2eedu"
+    gen3username: "user-vzpgb-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -21,9 +21,9 @@ spec:
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-fan1-40uchicago-2eedu"
+      gen3username: "user-vzpgb-40uchicago-2eedu"
     annotations:
-      gen3username: "fan1@uchicago.edu"
+      gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
       - name: internal_api_env
@@ -115,4 +115,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-sex-added
+    name: gwas-template-configurable-buckets
