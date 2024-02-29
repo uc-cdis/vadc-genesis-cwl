@@ -404,13 +404,6 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 250m
-            memory: 500Mi
-          limits:
-            cpu: 500m
-            memory: 1Gi
         env:
         - name: DOWNLOADABLE_BUCKET
           valueFrom:
