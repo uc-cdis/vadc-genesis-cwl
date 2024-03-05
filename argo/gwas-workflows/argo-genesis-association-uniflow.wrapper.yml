@@ -33,7 +33,7 @@ spec:
       - name: source_population_cohort
         value: 131
       - name: hare_population
-        value: "Hispanic"
+        value: "non-Hispanic Asian"
       - name: hare_concept_id
         value: 2000007027
       - name: n_pcs
@@ -77,7 +77,7 @@ spec:
       - name: template_version
         value: gwas-template-uniflow
       - name: workflow_name
-        value: "test-combine-sex-info"
+        value: "test-configurable-buckets"
       - name: gds_files
         value: |-
           [
