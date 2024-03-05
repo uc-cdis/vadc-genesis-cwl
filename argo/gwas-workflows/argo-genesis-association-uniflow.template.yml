@@ -389,6 +389,9 @@ spec:
                   from: "{{tasks.generate-pheweb-json.outputs.artifacts.pheweb_qq_json}}"
 
     - name: get-downloadable-bucket
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
