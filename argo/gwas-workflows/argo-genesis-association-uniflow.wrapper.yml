@@ -29,9 +29,9 @@ spec:
       - name: internal_api_env
         value: default
       - name: source_id
-        value: 4
+        value: 12
       - name: source_population_cohort
-        value: 131
+        value: 1487
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
