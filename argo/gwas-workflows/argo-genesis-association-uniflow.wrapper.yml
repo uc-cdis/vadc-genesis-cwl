@@ -1,13 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-buckets-wrapper-
+  generateName: gwas-template-sex-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3username: "user-fan1-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -21,9 +21,9 @@ spec:
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-vzpgb-40uchicago-2eedu"
+      gen3username: "user-fan1-40uchicago-2eedu"
     annotations:
-      gen3username: "vzpgb@uchicago.edu"
+      gen3username: "fan1@uchicago.edu"
   arguments:
     parameters:
       - name: internal_api_env
@@ -33,7 +33,7 @@ spec:
       - name: source_population_cohort
         value: 131
       - name: hare_population
-        value: "non-Hispanic Asian"
+        value: "Hispanic"
       - name: hare_concept_id
         value: 2000007027
       - name: n_pcs
@@ -77,7 +77,7 @@ spec:
       - name: template_version
         value: gwas-template-uniflow
       - name: workflow_name
-        value: "test-configurable-buckets"
+        value: "test-combine-sex-info"
       - name: gds_files
         value: |-
           [
@@ -115,4 +115,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-configurable-buckets
+    name: gwas-template-sex-added
