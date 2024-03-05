@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: gwas-template-buckets-wrapper-
-  namespace: argo
+  namespace: argo-va-testing
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
   labels:
@@ -27,11 +27,11 @@ spec:
   arguments:
     parameters:
       - name: internal_api_env
-        value: default
+        value: va-testing
       - name: source_id
-        value: 4
+        value: 2
       - name: source_population_cohort
-        value: 131
+        value: 121
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
