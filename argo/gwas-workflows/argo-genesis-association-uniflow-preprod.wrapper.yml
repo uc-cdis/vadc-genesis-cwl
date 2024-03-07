@@ -8,6 +8,7 @@ metadata:
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3teamproject: "2f677761735f70726f6a656374732f756368696361676f31"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -28,6 +29,8 @@ spec:
     parameters:
       - name: internal_api_env
         value: va-testing
+      - name: team_project
+        value: /gwas_projects/uchicago1
       - name: source_id
         value: 2
       - name: source_population_cohort
