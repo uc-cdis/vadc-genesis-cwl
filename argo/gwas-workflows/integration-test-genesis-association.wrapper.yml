@@ -5,9 +5,11 @@ metadata:
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
+    workflow_name: "test-pheweb-download"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -19,6 +21,12 @@ spec:
       gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
+      - name: template_version
+        value: gwas-template-pheweb-download
+      - name: workflow_name
+        value: "test-pheweb-download"
+      - name: team_project
+        value: /gwas_projects/uchicago1
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
@@ -107,4 +115,4 @@ spec:
       emptyDir:
         sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-integration-buckets
+    name: gwas-template-integration-pheweb-download

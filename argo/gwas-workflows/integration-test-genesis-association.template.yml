@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-integration-buckets
+  name: gwas-template-integration-pheweb-download
 spec:
   ttlStrategy:
     secondsAfterCompletion: 10
@@ -139,13 +139,6 @@ spec:
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
-          - name: create-figure
-            template: create-figure
-            dependencies: [get-downloadable-bucket, get-attrition-csv]
-            arguments:
-              parameters:
-                - name: downloadable_bucket
-                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
           - name: archive-outputs
             template: archive-outputs
             dependencies: [get-downloadable-bucket, get-gwas-metadata, get-attrition-csv]
@@ -175,7 +168,7 @@ spec:
                     key: "public-pheweb-input-tsv/meta_Single_lgddimer.for_pheweb.tsv.gz"
           - name: create-indexd-record
             template: create-indexd-record
-            dependencies: [get-downloadable-bucket, archive-outputs, create-figure, generate-pheweb-json]
+            dependencies: [get-downloadable-bucket, archive-outputs, generate-pheweb-json]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -189,8 +182,6 @@ spec:
               artifacts:
                 - name: gwas_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.gwas_archive}}"
-                - name: simulated_plot
-                  from: "{{tasks.create-figure.outputs.artifacts.simulated_plot}}"
                 - name: attrition_json
                   from: "{{tasks.get-attrition-csv.outputs.artifacts.attrition_table_json}}"
                 - name: manhattan_pheweb_json
@@ -496,53 +487,6 @@ spec:
                 name: argo-s3-creds
                 key: SecretAccessKey
 
-    - name: create-figure
-      inputs:
-        parameters:
-          - name: downloadable_bucket
-      script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          runAsUser: 0
-        command: [Rscript]
-        source: |
-          library(ggplot2)
-
-          sim.dat <- as.data.frame(rnorm(1000))
-          names(sim.dat) <- c("X")
-          head(sim.dat)
-
-          p <- ggplot(sim.dat, aes(x=X)) +
-            geom_histogram(bins=30)
-          ggsave(filename="/mnt/vol/test.png", plot=p, width=10, height=5)
-        volumeMounts:
-          - name: workdir
-            mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 250m
-            memory: 1Gi
-          limits:
-            cpu: 1000m
-            memory: 8Gi
-      outputs:
-        artifacts:
-          - name: simulated_plot
-            path: "/mnt/vol/test.png"
-            archive:
-              none: {}
-            s3:
-              endpoint: s3.amazonaws.com
-              bucket: "{{inputs.parameters.downloadable_bucket}}"
-              key: "{{workflow.name}}/test.png"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
-
     - name: archive-outputs
       inputs:
         parameters:
@@ -654,8 +598,6 @@ spec:
         artifacts:
           - name: gwas_archive
             path: "/mnt/vol/{{workflow.name}}.zip"
-          - name: simulated_plot
-            path: "/mnt/vol/test.png"
           - name: attrition_json
             path: "/mnt/vol/{{workflow.name}}.attrition.json"
           - name: manhattan_pheweb_json
@@ -672,12 +614,6 @@ spec:
           --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.zip \
           --arborist_resource {{inputs.parameters.arborist_resource}} \
           -o /mnt/vol/did_archive.json
-
-          /env/bin/vadc-gwas-tools CreateIndexdRecord \
-          --gwas_archive {{inputs.artifacts.simulated_plot.path}} \
-          --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/test.png \
-          --arborist_resource {{inputs.parameters.arborist_resource}} \
-          -o /mnt/vol/did_plot.json
 
           /env/bin/vadc-gwas-tools CreateIndexdRecord \
           --gwas_archive {{inputs.artifacts.attrition_json.path}} \
@@ -725,10 +661,6 @@ spec:
             valueFrom:
               path: /mnt/vol/did_archive.json
             globalName: gwas_archive_index
-          - name: simulated_plot_index
-            valueFrom:
-              path: /mnt/vol/did_plot.json
-            globalName: manhattan_plot_index
           - name: attrition_json_index
             valueFrom:
               path: /mnt/vol/did_attrition.json
