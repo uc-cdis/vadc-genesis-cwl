@@ -1,7 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-configurable-buckets
+  name: gwas-template-fix-manhattan
+  annotations:
+    version: 1.0.0
+    description: |
+      Fixed manhattan plot:
+        * adjusted p-value when it is 0
+        * set significance line at 5e-8
 spec:
   ttlStrategy:
     secondsAfterCompletion: 10
@@ -1193,6 +1199,8 @@ spec:
           echo "thin \"TRUE\"" >> plots.config
           echo "assoc_file \"{{inputs.parameters.out_prefix}}_chr .RData\"" >> plots.config
           echo "chromosomes \"{{inputs.parameters.chromosomes}}\"" >> plots.config
+          echo "signif_type fixed" >> plots.config
+          echo "signif_line_fixed 5e-8" >> plots.config
           echo "out_file_manh \"{{inputs.parameters.out_prefix}}_manhattan.png\"" >> plots.config
           echo "out_file_qq \"{{inputs.parameters.out_prefix}}_qq.png\"" >> plots.config
 
@@ -1200,11 +1208,13 @@ spec:
           ls -al
 
           set -xe
-          Rscript /usr/local/analysis_pipeline/R/assoc_plots.R plots.config
+          Rscript /commons-data/assoc_plots.R plots.config
 
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
         resources:
           requests:
             cpu: 250m
