@@ -1,10 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-buckets-wrapper-
+  generateName: gwas-template-fix-manhattan-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
+    workflow_name: "test-fix-manhattan"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -26,6 +27,10 @@ spec:
       gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
+      - name: template_version
+        value: gwas-template-fix-manhattan
+      - name: workflow_name
+        value: "test-fix-manhattan"
       - name: internal_api_env
         value: default
       - name: source_id
@@ -74,10 +79,8 @@ spec:
         value: 0.01
       - name: imputation_score_cutoff
         value: 0.3
-      - name: template_version
-        value: gwas-template-uniflow
-      - name: workflow_name
-        value: "test-configurable-buckets"
+      - name: sex_table
+        value: /commons-data/mvp_sex_table.csv
       - name: gds_files
         value: |-
           [
@@ -105,8 +108,6 @@ spec:
             "/commons-data/gds/chr22.merged.vcf.gz.gds",
             "/commons-data/gds/chrX.merged.vcf.gz.gds"
           ]
-      - name: sex_table
-        value: /commons-data/mvp_sex_table.csv
   volumes:
     - name: gateway
       persistentVolumeClaim:
@@ -115,4 +116,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-configurable-buckets
+    name: gwas-template-fix-manhattan
