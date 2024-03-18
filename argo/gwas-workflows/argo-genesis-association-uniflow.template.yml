@@ -5,7 +5,7 @@ metadata:
   annotations:
     version: 1.0.0
     description: |
-      Fixed manhattan plot:
+      Fixed Manhattan plot:
         * adjusted p-value when it is 0
         * set significance line at 5e-8
 spec:

@@ -30,7 +30,7 @@ spec:
       - name: template_version
         value: gwas-template-fix-manhattan
       - name: workflow_name
-        value: "fix-manhattan"
+        value: "test-fix-manhattan"
       - name: internal_api_env
         value: default
       - name: source_id
