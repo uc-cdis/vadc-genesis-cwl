@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-fix-manhattan-wrapper-
+  generateName: gwas-template-fix-timeout-wrapper-
   namespace: argo-va-testing
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-fix-manhattan"
+    workflow_name: "test-fix-timeout"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -29,9 +29,9 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-fix-manhattan
+        value: gwas-template-fix-timeout
       - name: workflow_name
-        value: "test-fix-manhattan"
+        value: "test-fix-timeout"
       - name: internal_api_env
         value: va-testing
       - name: team_project
@@ -119,4 +119,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-fix-manhattan
+    name: gwas-template-fix-timeout
