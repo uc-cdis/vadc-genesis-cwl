@@ -265,7 +265,7 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -317,7 +317,7 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -410,7 +410,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -454,7 +454,7 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -597,7 +597,7 @@ spec:
           - name: pheweb_input_tsv
             path: /mnt/vol/pheweb.tsv.gz
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -663,7 +663,7 @@ spec:
           - name: qq_pheweb_json
             path: "/mnt/vol/pheweb.qq.json"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.2
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
