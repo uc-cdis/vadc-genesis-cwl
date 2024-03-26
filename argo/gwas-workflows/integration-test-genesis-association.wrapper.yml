@@ -1,13 +1,15 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-integration-test-wrapper-
+  generateName: gwas-template-integration-buckets-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
+    workflow_name: "test-buckets"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431" 
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -19,6 +21,10 @@ spec:
       gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
+      - name: template_version
+        value: gwas-template-integration-buckets
+      - name: team_project
+        value: /gwas_projects/project1
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
@@ -26,7 +32,7 @@ spec:
       - name: source_population_cohort
         value: 404
       - name: hare_population
-        value: "non-hispanic Asian"
+        value: "non-Hispanic Asian"
       - name: hare_concept_id
         default: 2000007027
         value: 2000007027

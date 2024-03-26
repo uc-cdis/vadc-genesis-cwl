@@ -1,11 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-test-buckets
+  name: gwas-template-integration-buckets
   annotations:
     version: 1.0.0
     description: |
-        Merge all qa templates to the latest
+        * Make buckets configurable
+        * Merge all previous QA templates to the main one
 spec:
   ttlStrategy:
     secondsAfterCompletion: 10
