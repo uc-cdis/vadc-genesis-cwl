@@ -9,6 +9,7 @@ metadata:
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    # team_project /gwas_projects/project1
     gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431" 
 spec:
   entrypoint: gwas-workflow
@@ -23,8 +24,6 @@ spec:
     parameters:
       - name: template_version
         value: gwas-template-integration-buckets
-      - name: team_project
-        value: /gwas_projects/project1
       - name: internal_api_env
         value: qa-mickey
       - name: source_id

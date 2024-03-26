@@ -29,8 +29,6 @@ spec:
     parameters:
       - name: template_version
         value: gwas-template-fix-timeout
-      - name: workflow_name
-        value: "test-fix-timeout"
       - name: internal_api_env
         value: default
       - name: source_id
