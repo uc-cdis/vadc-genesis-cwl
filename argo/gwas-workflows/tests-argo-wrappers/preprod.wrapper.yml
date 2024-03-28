@@ -1,55 +1,60 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-wrapper-
-  namespace: argo
+  generateName: gwas-template-fix-timeout-wrapper-
+  namespace: argo-va-testing
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
+    workflow_name: "test-fix-timeout"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-kmhernan-40uchicago-2eedu"
+    gen3username: "user-vzpgb-40uchicago-2eedu"
+    # team_project /gwas_projects/uchicago1
+    gen3teamproject: "2f677761735f70726f6a656374732f756368696361676f31"
 spec:
   entrypoint: gwas-workflow
   podGC:
-    strategy: OnWorkflowSuccess
+    strategy: OnPodCompletion
   nodeSelector:
-    role: "workflow"
+    role: "{{workflow.name}}"
   tolerations:
     - key: "role"
       operator: "Equal"
-      value: "workflow"
+      value: "{{workflow.name}}"
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-kmhernan-40uchicago-2eedu"
+      gen3username: "user-vzpgb-40uchicago-2eedu"
     annotations:
-      gen3username: "kmhernan@uchicago.edu"
+      gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
+      - name: template_version
+        value: gwas-template-fix-timeout
       - name: internal_api_env
-        value: default
+        value: va-testing
       - name: source_id
-        value: 4
-      - name: case_cohort_definition_id
-        value: 70
-      - name: control_cohort_definition_id
-        value: -1
+        value: 2
+      - name: source_population_cohort
+        value: 121
       - name: hare_population
-        value: "non-Hispanic White"
+        value: "non-Hispanic Asian"
+      - name: hare_concept_id
+        value: 2000007027
       - name: n_pcs
         default: 0
         value: 3
       - name: variables
         value: |
-          [
-            {"variable_type": "concept", "concept_id": 2000006885},
-            {"variable_type": "concept", "concept_id": 2000006886},
-            {"variable_type": "concept", "concept_id": 2000000324}
+          [ 
+            {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"},
+            {"variable_type": "concept", "concept_id": 2000006883, "concept_name": "Average  diastolic BP [MVP Vitals]"}
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
-        value: 2000006885
+        value: |-
+          {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"}
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -74,12 +79,8 @@ spec:
         value: 0.01
       - name: imputation_score_cutoff
         value: 0.3
-      - name: top_n_hits
-        default: 100
-        value: 100
-      - name: pvalue_cutoff
-        default: 5e-8
-        value: 5e-8
+      - name: sex_table
+        value: /commons-data/mvp_sex_table.csv
       - name: gds_files
         value: |-
           [
@@ -104,7 +105,8 @@ spec:
             "/commons-data/gds/chr19.merged.vcf.gz.gds",
             "/commons-data/gds/chr20.merged.vcf.gz.gds",
             "/commons-data/gds/chr21.merged.vcf.gz.gds",
-            "/commons-data/gds/chr22.merged.vcf.gz.gds"
+            "/commons-data/gds/chr22.merged.vcf.gz.gds",
+            "/commons-data/gds/chrX.merged.vcf.gz.gds"
           ]
   volumes:
     - name: gateway
@@ -114,4 +116,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template
+    name: gwas-template-fix-timeout

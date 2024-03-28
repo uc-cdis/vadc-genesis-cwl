@@ -1,41 +1,58 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-perf-wrapper-
+  generateName: gwas-template-fix-timeout-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
+    workflow_name: "test-fix-timeout"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-kmhernan-40uchicago-2eedu"
+    gen3username: "user-vzpgb-40uchicago-2eedu"
 spec:
   entrypoint: gwas-workflow
   podGC:
     strategy: OnPodCompletion
   nodeSelector:
-    role: "workflow"
+    role: "{{workflow.name}}"
   tolerations:
     - key: "role"
       operator: "Equal"
-      value: "workflow"
+      value: "{{workflow.name}}"
       effect: "NoSchedule"
   podMetadata:
     labels:
-      gen3username: "user-kmhernan-40uchicago-2eedu"
+      gen3username: "user-vzpgb-40uchicago-2eedu"
     annotations:
-      gen3username: "kmhernan@uchicago.edu"
+      gen3username: "vzpgb@uchicago.edu"
   arguments:
     parameters:
-      - name: phenotype_csv
-        value: "100k.prod_height_pheno.csv"
+      - name: template_version
+        value: gwas-template-fix-timeout
+      - name: internal_api_env
+        value: default
+      - name: source_id
+        value: 12
+      - name: source_population_cohort
+        value: 1487
+      - name: hare_population
+        value: "non-Hispanic Asian"
+      - name: hare_concept_id
+        value: 2000007027
       - name: n_pcs
+        default: 0
         value: 3
-      - name: covariates
-        value: "Hare age gender"
+      - name: variables
+        value: |
+          [ 
+            {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"},
+            {"variable_type": "concept", "concept_id": 2000006883, "concept_name": "Average  diastolic BP [MVP Vitals]"}
+          ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
-        value: Height
+        value: |-
+          {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"}
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -60,6 +77,8 @@ spec:
         value: 0.01
       - name: imputation_score_cutoff
         value: 0.3
+      - name: sex_table
+        value: /commons-data/mvp_sex_table.csv
       - name: gds_files
         value: |-
           [
@@ -84,7 +103,8 @@ spec:
             "/commons-data/gds/chr19.merged.vcf.gz.gds",
             "/commons-data/gds/chr20.merged.vcf.gz.gds",
             "/commons-data/gds/chr21.merged.vcf.gz.gds",
-            "/commons-data/gds/chr22.merged.vcf.gz.gds"
+            "/commons-data/gds/chr22.merged.vcf.gz.gds",
+            "/commons-data/gds/chrX.merged.vcf.gz.gds"
           ]
   volumes:
     - name: gateway
@@ -94,4 +114,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-perf-template
+    name: gwas-template-fix-timeout

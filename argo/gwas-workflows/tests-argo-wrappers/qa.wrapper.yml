@@ -1,25 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-fix-timeout-wrapper-
+  generateName: gwas-template-integration-buckets-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-fix-timeout"
+    workflow_name: "test-buckets"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    # team_project /gwas_projects/project1
+    gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431" 
 spec:
   entrypoint: gwas-workflow
   podGC:
-    strategy: OnPodCompletion
-  nodeSelector:
-    role: "{{workflow.name}}"
-  tolerations:
-    - key: "role"
-      operator: "Equal"
-      value: "{{workflow.name}}"
-      effect: "NoSchedule"
+    strategy: OnPodSuccess
   podMetadata:
     labels:
       gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -28,33 +23,33 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-fix-timeout
-      - name: workflow_name
-        value: "test-fix-timeout"
+        value: gwas-template-integration-buckets
       - name: internal_api_env
-        value: default
+        value: qa-mickey
       - name: source_id
-        value: 12
+        value: 2
       - name: source_population_cohort
-        value: 1487
+        value: 404
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
+        default: 2000007027
         value: 2000007027
       - name: n_pcs
         default: 0
         value: 3
       - name: variables
         value: |
-          [ 
-            {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"},
-            {"variable_type": "concept", "concept_id": 2000006883, "concept_name": "Average  diastolic BP [MVP Vitals]"}
+          [
+            {"variable_type": "custom_dichotomous", "cohort_ids": [300, 301], "provided_name": "test123"},
+            {"variable_type": "concept", "concept_id": 2000000708, "prefixed_concept_id": null},
+            {"variable_type": "concept", "concept_id": 2000000280, "prefixed_concept_id": null}
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          {"variable_type": "concept", "concept_id": 2000000860, "concept_name": "Average Chloride [MVP Labs]"}
+          {"variable_type": "custom_dichotomous", "provided_name": "test123", "cohort_ids": [300, 301]}
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -78,9 +73,13 @@ spec:
       - name: maf_threshold
         value: 0.01
       - name: imputation_score_cutoff
-        value: 0.3
-      - name: sex_table
-        value: /commons-data/mvp_sex_table.csv
+        value: 0.03
+      - name: pvalue_cutoff
+        default: 5e-8
+        value: 5e-8
+      - name: top_n_hits
+        default: 100
+        value: 100
       - name: gds_files
         value: |-
           [
@@ -109,11 +108,8 @@ spec:
             "/commons-data/gds/chrX.merged.vcf.gz.gds"
           ]
   volumes:
-    - name: gateway
-      persistentVolumeClaim:
-        claimName: parallel-test-pvc
     - name: workdir
       emptyDir:
-        sizeLimit: "10Gi"
+        sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-fix-timeout
+    name: gwas-template-integration-buckets

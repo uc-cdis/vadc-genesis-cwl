@@ -1,10 +1,14 @@
 inputs:
   parameters:
+    - name: template_version
+      description: |
+        Optional wrapper parameter that allows to display template version in the Argo UI.
     - name: internal_api_env
       description: |
         When communicating with Gen3 APIs internally, the internal URLs can refer to
         different environments. Since argo is running in it's own namespace, we need
-        to set this value. On prod that would be `default` but on QA it would be `qa-mickey`.
+        to set this value. On prod that would be `default`, on preprod it would be
+        `va-testing`, and on QA it would be `qa-mickey`.
       default: default
     - name: source_id
       description: The source ID integer for where the cohorts are defined.
@@ -80,5 +84,7 @@ inputs:
     - name: top_n_hits
       description: This int will be used to subset GWAS summary statistics to top N hits based on p-value.
       default: 100
+    - name: sex_table
+      description: Path to the CSV file on the gateway mount.
     - name: gds_files
       description: A stringified JSON array of GDS paths on the gateway mount.
