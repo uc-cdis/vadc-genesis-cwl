@@ -1,11 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-fix-timeout-wrapper-
+  generateName: gwas-template-mountpoint-s3-wrapper-
   namespace: argo-va-testing
   annotations:
+    version: 1.0.0
+    description: |
+      Replace Storage Gateway PVC with Mountpoint-S3 PVC
     workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-fix-timeout"
+    workflow_name: "test-mountpoint-s3"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -111,7 +114,7 @@ spec:
   volumes:
     - name: gateway
       persistentVolumeClaim:
-        claimName: parallel-test-pvc
+        claimName: vhdcprod-input-data-bucket-claim
     - name: workdir
       emptyDir:
         sizeLimit: "10Gi"
