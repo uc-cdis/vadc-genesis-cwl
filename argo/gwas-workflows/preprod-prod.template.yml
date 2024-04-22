@@ -8,6 +8,9 @@ metadata:
       Use vadc-gwas-tool release 1.2.3:
         * cohort-middleware timeouts are not fixed and depend on number of covariates
 spec:
+  # must complete in 8h (28,800 seconds)
+  activeDeadlineSeconds: 28800
+  # keep workflow for 10 seconds
   ttlStrategy:
     secondsAfterCompletion: 10
   podMetadata:
