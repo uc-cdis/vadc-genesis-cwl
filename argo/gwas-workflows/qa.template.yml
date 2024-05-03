@@ -1,13 +1,15 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-integration-buckets
+  name: gwas-template-integration-deadline
   annotations:
-    version: 1.0.0
+    version: 1.0.1
     description: |
-        * Make buckets configurable
-        * Merge all previous QA templates to the main one
+        * Add 1 hour deadline for the workflows
 spec:
+  # must complete in 1h (360 seconds)
+  activeDeadlineSeconds: 3600
+  # keep workflow for 10 seconds
   ttlStrategy:
     secondsAfterCompletion: 10
   entrypoint: gwas-workflow
