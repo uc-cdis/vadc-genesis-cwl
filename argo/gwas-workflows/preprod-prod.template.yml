@@ -1,13 +1,15 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-fix-timeout
+  name: gwas-template-deadline
   annotations:
-    version: 1.0.1
+    version: 1.0.2
     description: |
-      Use vadc-gwas-tool release 1.2.3:
-        * cohort-middleware timeouts are not fixed and depend on number of covariates
+      Add 8 hours deadline for the workflows
 spec:
+  # must complete in 8h (28,800 seconds)
+  activeDeadlineSeconds: 28800
+  # keep workflow for 10 seconds
   ttlStrategy:
     secondsAfterCompletion: 10
   podMetadata:

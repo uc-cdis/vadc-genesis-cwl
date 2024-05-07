@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: gwas-template-integration-buckets-wrapper-
+  generateName: deadline-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-buckets"
+    workflow_name: "test-deadline"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -23,7 +23,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-integration-buckets
+        value: gwas-template-deadline
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
@@ -112,4 +112,4 @@ spec:
       emptyDir:
         sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-integration-buckets
+    name: gwas-template-integration-deadline
