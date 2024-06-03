@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-integration-deadline
+  name: gwas-template-new-arborist-resource
   annotations:
-    version: 1.0.1
+    version: 1.0.2
     description: |
-        * Add 1 hour deadline for the workflows
+        * Changing arborist_resource to /cohort-middleware
 spec:
   # must complete in 1h (360 seconds)
   activeDeadlineSeconds: 3600
