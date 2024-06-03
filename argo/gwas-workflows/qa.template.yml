@@ -186,7 +186,7 @@ spec:
             arguments:
               parameters:
                 - name: arborist_resource
-                  value: "/programs/DEV/projects/test"
+                  value: "/cohort-middleware"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
                 - name: out_prefix
