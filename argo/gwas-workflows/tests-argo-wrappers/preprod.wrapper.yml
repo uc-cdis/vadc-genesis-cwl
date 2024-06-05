@@ -116,4 +116,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-deadline
+    name: gwas-template-memory

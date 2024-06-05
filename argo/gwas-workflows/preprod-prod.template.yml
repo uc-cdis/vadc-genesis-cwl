@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-deadline
+  name: gwas-template-memory
   annotations:
-    version: 1.0.2
+    version: 1.0.3
     description: |
-      Add 8 hours deadline for the workflows
+      Increase memory for run-single-assoc step
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -1110,10 +1110,10 @@ spec:
         resources:
           requests:
             cpu: 1000m
-            memory: 4Gi
+            memory: 6Gi
           limits:
             cpu: 2000m
-            memory: 8Gi
+            memory: 12Gi
       outputs:
         artifacts:
           - name: single_assoc_segment_output
