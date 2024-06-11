@@ -80,6 +80,8 @@ spec:
       - name: top_n_hits
         default: 100
         value: 100
+      - name: team_project
+        value: "/gwas_projects/project1"
       - name: gds_files
         value: |-
           [

@@ -3,9 +3,9 @@ kind: WorkflowTemplate
 metadata:
   name: gwas-template-new-arborist-resource
   annotations:
-    version: 1.0.2
+    version: 1.0.3
     description: |
-        * Changing arborist_resource to /cohort-middleware
+        * Changing arborist_resource to team_project
 spec:
   # must complete in 1h (360 seconds)
   activeDeadlineSeconds: 3600
@@ -48,6 +48,7 @@ spec:
           - name: pvalue_cutoff
             default: 5e-8
           - name: gds_files
+          - name: team_project
       dag:
         tasks:
           - name: get-downloadable-bucket
@@ -186,7 +187,7 @@ spec:
             arguments:
               parameters:
                 - name: arborist_resource
-                  value: "/cohort-middleware"
+                  value: "{{inputs.parameters.team_project}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
                 - name: out_prefix
