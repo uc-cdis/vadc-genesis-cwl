@@ -497,12 +497,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
 
     - name: create-figure
       inputs:
@@ -544,12 +544,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/test.png"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
 
     - name: archive-outputs
       inputs:
@@ -589,12 +589,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.zip"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
 
     - name: pheweb-json
       inputs:
@@ -631,12 +631,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
           - name: qq_json_for_pheweb
             path: /mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json
             archive:
@@ -645,12 +645,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{inputs.parameters.out_prefix}}.pheweb.qq.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
 
     - name: create-indexd-record
       inputs:
