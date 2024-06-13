@@ -3,9 +3,9 @@ kind: WorkflowTemplate
 metadata:
   name: gwas-template-memory
   annotations:
-    version: 1.0.3
+    version: 1.0.4
     description: |
-      Increase memory for run-single-assoc step
+      Add team project for indexd permission
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -57,7 +57,7 @@ spec:
             default: 100
           - name: gds_files
           - name: sex_table
-
+          - name: team_project
       dag:
         tasks:
           - name: get-downloadable-bucket
@@ -376,7 +376,7 @@ spec:
             arguments:
               parameters:
                 - name: arborist_resource
-                  value: "/cohort-middleware"
+                  value: "{{inputs.parameters.team_project}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
                 - name: out_prefix
@@ -557,12 +557,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
     
     - name: generate-gwas-metadata
       inputs:
@@ -1233,12 +1233,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+              # accessKeySecret:
+              #   name: argo-s3-creds
+              #   key: AccessKeyId
+              # secretKeySecret:
+              #   name: argo-s3-creds
+              #   key: SecretAccessKey
           - name: qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
@@ -1437,12 +1437,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+            #   accessKeySecret:
+            #     name: argo-s3-creds
+            #     key: AccessKeyId
+            #   secretKeySecret:
+            #     name: argo-s3-creds
+            #     key: SecretAccessKey
           - name: pheweb_qq_json
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json"
             archive:
@@ -1451,12 +1451,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+            #   accessKeySecret:
+            #     name: argo-s3-creds
+            #     key: AccessKeyId
+            #   secretKeySecret:
+            #     name: argo-s3-creds
+            #     key: SecretAccessKey
 
     - name: curate-gwas-hits
       inputs:
@@ -1560,12 +1560,12 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}" 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
-              accessKeySecret:
-                name: argo-s3-creds
-                key: AccessKeyId
-              secretKeySecret:
-                name: argo-s3-creds
-                key: SecretAccessKey
+            #   accessKeySecret:
+            #     name: argo-s3-creds
+            #     key: AccessKeyId
+            #   secretKeySecret:
+            #     name: argo-s3-creds
+            #     key: SecretAccessKey
 
     - name: create-indexd-record
       inputs:
