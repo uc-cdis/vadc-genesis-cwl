@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-memory
+  name: gwas-template-team-project
   annotations:
     version: 1.0.4
     description: |

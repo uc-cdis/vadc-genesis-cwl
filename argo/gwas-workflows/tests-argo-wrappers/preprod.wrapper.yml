@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-deadline
+        value: gwas-template-team-project
       - name: internal_api_env
         value: default
       - name: source_id
@@ -118,4 +118,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-memory
+    name: gwas-template-team-project
