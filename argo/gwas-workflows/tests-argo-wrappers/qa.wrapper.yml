@@ -114,4 +114,4 @@ spec:
       emptyDir:
         sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-integration-deadline
+    name: gwas-template-integration-comment-secrets
