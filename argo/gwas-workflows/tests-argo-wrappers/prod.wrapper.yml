@@ -1,14 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: deadline-wrapper-
+  generateName: zip-wrapper-
   namespace: argo
   annotations:
-    workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-deadline"
+    workflows.argoproj.io/version: ">= 3.2.0"
+    workflow_name: "test-zip"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
+    # team_project /gwas_projects/Uchicago
+    gen3teamproject: "2f677761735f70726f6a656374732f556368696361676f"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -28,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-deadline
+        value: gwas-template-zip
       - name: internal_api_env
         value: default
       - name: source_id
@@ -79,6 +81,8 @@ spec:
         value: 0.3
       - name: sex_table
         value: /commons-data/mvp_sex_table.csv
+      - name: team_project
+        value: "/gwas_projects/Uchicago"
       - name: gds_files
         value: |-
           [
@@ -114,4 +118,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-memory
+    name: gwas-template-zip

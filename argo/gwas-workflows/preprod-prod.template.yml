@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-team-project
+  name: gwas-template-zip
   annotations:
-    version: 1.0.4
+    version: 1.0.5
     description: |
-      Add team project for indexd permission
+      Use .zip format instead of .gz for downloadable files
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -1537,9 +1537,22 @@ spec:
         imagePullPolicy: IfNotPresent
         command: [/bin/sh]
         source: |
-          cd /mnt/vol
-          zip -r {{workflow.name}}.zip {{workflow.name}}/
+          cd /mnt/vol/{{workflow.name}}/
+          gzip -d {{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz
+          zip {{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.zip {{inputs.parameters.out_prefix}}.below_cutoff_hits.csv
+          rm {{inputs.parameters.out_prefix}}.below_cutoff_hits.csv
 
+          gzip -d {{inputs.parameters.out_prefix}}.top_hits.csv.gz
+          zip {{inputs.parameters.out_prefix}}.top_hits.csv.zip {{inputs.parameters.out_prefix}}.top_hits.csv
+          rm {{inputs.parameters.out_prefix}}.top_hits.csv
+
+          cd /mnt/vol/{{workflow.name}}/annotated_summary_csvs/
+          for file in ./*; do gzip -d "$file"; done
+          for file in ./*; do zip "$file.zip" "$file" & done; wait
+          rm -r *.csv
+
+          cd /mnt/vol/
+          zip -r {{workflow.name}}.zip {{workflow.name}}/
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
