@@ -9,8 +9,8 @@ metadata:
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
-    # team_project /gwas_projects/uchicago1
-    gen3teamproject: "2f677761735f70726f6a656374732f756368696361676f31"
+    # team_project /gwas_projects/Uchicago
+    gen3teamproject: "2f677761735f70726f6a656374732f556368696361676f"
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -36,7 +36,7 @@ spec:
       - name: source_id
         value: 2
       - name: source_population_cohort
-        value: 121
+        value: 729
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
@@ -82,7 +82,7 @@ spec:
       - name: sex_table
         value: /commons-data/mvp_sex_table.csv
       - name: team_project
-        value: "/gwas_projects/uchicago1"
+        value: "/gwas_projects/Uchicago"
       - name: gds_files
         value: |-
           [
