@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-zip
+  name: gwas-template-cohort-definition
   annotations:
-    version: 1.0.5
+    version: 1.0.6
     description: |
-      Use .zip format instead of .gz for downloadable files
+      * Cohorts' definitions added to the gwas_metadata.yaml
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -464,7 +464,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -522,7 +522,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -584,7 +584,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -628,7 +628,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -977,7 +977,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -1003,7 +1003,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1404,7 +1404,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -1472,7 +1472,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -1602,7 +1602,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.3
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:test_fips-compliance
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
