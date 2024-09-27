@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: deadline-wrapper-
+  generateName: cohort-definition-wrapper-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
-    workflow_name: "test-deadline"
+    workflow_name: "test-cohort-definition"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
@@ -23,13 +23,13 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-deadline
+        value: gwas-template-cohort-definition
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
         value: 2
       - name: source_population_cohort
-        value: 404
+        value: 468
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
@@ -41,15 +41,13 @@ spec:
       - name: variables
         value: |
           [
-            {"variable_type": "custom_dichotomous", "cohort_ids": [300, 301], "provided_name": "test123"},
-            {"variable_type": "concept", "concept_id": 2000000708, "prefixed_concept_id": null},
-            {"variable_type": "concept", "concept_id": 2000000280, "prefixed_concept_id": null}
+            { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          {"variable_type": "custom_dichotomous", "provided_name": "test123", "cohort_ids": [300, 301]}
+          { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
@@ -114,4 +112,4 @@ spec:
       emptyDir:
         sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-integration-comment-secrets
+    name: gwas-template-cohort-definition
