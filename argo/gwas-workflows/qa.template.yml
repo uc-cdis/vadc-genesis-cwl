@@ -273,8 +273,8 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: ["/bin/bash"]
         source: |
           /env/bin/vadc-gwas-tools ProcessInputVariables \
@@ -325,8 +325,8 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools GetCohortPheno \
@@ -418,8 +418,8 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools GetGwasMetadata \
@@ -462,8 +462,8 @@ spec:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: ["/bin/bash"]
         source: |
           mkdir /mnt/vol/attrition_csvs
@@ -605,8 +605,8 @@ spec:
           - name: pheweb_input_tsv
             path: /mnt/vol/pheweb.tsv.gz
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: ["/bin/bash"]
         source: |
           /env/bin/vadc-gwas-tools GetPheWebPlotJson \
@@ -671,8 +671,8 @@ spec:
           - name: qq_pheweb_json
             path: "/mnt/vol/pheweb.qq.json"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
-        imagePullPolicy: Always
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: ifNotPresent
         command: [/bin/bash]
         source: |
           /env/bin/vadc-gwas-tools CreateIndexdRecord \

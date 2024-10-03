@@ -398,7 +398,7 @@ spec:
     - name: get-downloadable-bucket
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
@@ -432,7 +432,7 @@ spec:
           - name: variables
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
@@ -462,9 +462,9 @@ spec:
             path: /mnt/vol/variables.json
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -520,9 +520,9 @@ spec:
             path: /mnt/vol/variables_validated.json
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -582,9 +582,9 @@ spec:
             path: /mnt/vol/variables_validated.json
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -626,9 +626,9 @@ spec:
             path: /mnt/vol/variables_with_hare.json
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -662,7 +662,7 @@ spec:
             path: "/mnt/vol/phenotypes.csv.gz"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -722,7 +722,7 @@ spec:
             path: "/mnt/vol/phenotypes.Rdata"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -812,7 +812,7 @@ spec:
             path: "/mnt/vol/null_model_phenotype.RData"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -872,7 +872,7 @@ spec:
           - name: gds_file
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -931,7 +931,7 @@ spec:
           - name: segment_length
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -975,9 +975,9 @@ spec:
           - name: gds_file
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools SplitFilenameByChr \
@@ -1001,9 +1001,9 @@ spec:
             path: "/mnt/vol/segments.txt"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools FilterSegments \
@@ -1046,7 +1046,7 @@ spec:
             path: "/mnt/vol/variant_lists"
       retryStrategy:
         limit: "5"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -1133,7 +1133,7 @@ spec:
             path: "/mnt/vol/file_shards"
       retryStrategy:
         limit: "4"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -1186,7 +1186,7 @@ spec:
             path: "/mnt/vol/combined"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -1256,7 +1256,7 @@ spec:
             path: "/mnt/vol/raw_stats.RData"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -1345,7 +1345,7 @@ spec:
             path: "/mnt/vol/combined"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
         imagePullPolicy: IfNotPresent
@@ -1402,9 +1402,9 @@ spec:
             path: "/mnt/vol/pheweb_stats.tsv.gz"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -1470,9 +1470,9 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/annotated_summary_csvs"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -1531,7 +1531,7 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
@@ -1600,9 +1600,9 @@ spec:
             path: "/mnt/vol/pheweb.qq.json"
       retryStrategy:
         limit: "3"
-        retryPolicy: "Always"
+        retryPolicy: "ifNotPresent"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feat_database_version
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
