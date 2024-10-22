@@ -82,6 +82,8 @@ spec:
         value: 0.3
       - name: sex_table
         value: /commons-data/mvp_sex_table.csv
+      - name: related_samples
+        value: /commons-data/related_samples.csv
       - name: team_project
         value: "/gwas_projects/Uchicago"
       - name: gds_files
@@ -119,4 +121,4 @@ spec:
       emptyDir:
         sizeLimit: "10Gi"
   workflowTemplateRef:
-    name: gwas-template-database-version
+    name: gwas-template-cholesky
