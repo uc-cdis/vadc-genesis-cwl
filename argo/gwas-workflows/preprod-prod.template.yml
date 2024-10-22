@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-database-version
+  name: gwas-template-cholesky
   annotations:
-    version: 1.0.7
+    version: 1.0.8
     description: |
-      * Database version added to the gwas_metadata.yaml
+      * Added fix for Cholesky error
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -58,6 +58,7 @@ spec:
           - name: gds_files
           - name: sex_table
           - name: team_project
+          - name: related_samples
       dag:
         tasks:
           - name: get-downloadable-bucket
@@ -153,6 +154,8 @@ spec:
                   value: "ID_{{inputs.parameters.hare_concept_id}}"
                 - name: hare_population 
                   value: "{{inputs.parameters.hare_population}}"
+                - name: related_samples
+                  value: "{{inputs.parameters.related_samples}}"
               artifacts:
                 - name: pheno_csv
                   from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
@@ -178,6 +181,8 @@ spec:
               artifacts: 
                 - name: phenotype_file
                   from: "{{tasks.generate-pheno.outputs.artifacts.phenotype_file}}"
+                - name: phenotype_file_05kinship_excluded
+                  from: "{{tasks.generate-pheno.outputs.artifacts.phenotype_file_05kinship_excluded}}"
           - name: combine-sex-table
             template: add-sex-info
             dependencies: [run-null-model]
@@ -557,12 +562,6 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.attrition.json"
-              # accessKeySecret:
-              #   name: argo-s3-creds
-              #   key: AccessKeyId
-              # secretKeySecret:
-              #   name: argo-s3-creds
-              #   key: SecretAccessKey
     
     - name: generate-gwas-metadata
       inputs:
@@ -657,6 +656,7 @@ spec:
         parameters:
           - name: prefixed_hare_concept_id
           - name: hare_population
+          - name: related_samples
         artifacts:
           - name: pheno_csv
             path: "/mnt/vol/phenotypes.csv.gz"
@@ -679,7 +679,7 @@ spec:
 
           # Filter to HARE population
           dat.csv <- subset(dat.csv, {{inputs.parameters.prefixed_hare_concept_id}} == "{{inputs.parameters.hare_population}}")
-
+          
           # Remove NAs
           dat.csv <- na.omit(dat.csv)
 
@@ -688,9 +688,39 @@ spec:
           stopifnot("sample.id" %in% varLabels(annot))
           save(annot, file="/mnt/vol/phenotypes.Rdata")
 
+          related_samples <- read.csv("{{inputs.parameters.related_samples}}", sep=",")
+          # Subset samples with cutoff 0.5
+          related_samples <- subset(related_samples, kinship==0.5)
+
+          # Print related samples
+          related_samples_pairs <- subset(related_samples,
+                                   sample_id_i %in% dat.csv$sample.id &
+                                   sample_id_j %in% dat.csv$sample.id)
+          
+          noquote("Related samples:")
+          print(related_samples_pairs)
+
+          # Filter on related samples - exlude only one individual from the pair (sample_id_i)
+          dat.csv <- subset(dat.csv, !sample.id %in% related_samples_pairs$sample_id_i)
+
+          # Print exluded samples
+          noquote("0.5 kinship samples ids excluded:")
+          print(related_samples_pairs$sample_id_i)
+
+          # Print number of samples excluded
+          noquote("Number of 0.5 kinship samples excluded:")
+          print(length(related_samples_pairs$sample_id_i))
+
+          # Convert to AnnotatedDataFrame
+          annot <- AnnotatedDataFrame(dat.csv)
+          stopifnot("sample.id" %in% varLabels(annot))
+          save(annot, file="/mnt/vol/phenotypes-05kinship-excluded.Rdata")
+
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
         resources:
           requests:
             cpu: 500m
@@ -706,6 +736,12 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/{{pod.name}}/phenotypes.Rdata"
+          - name: phenotype_file_05kinship_excluded
+            path: "/mnt/vol/phenotypes-05kinship-excluded.Rdata"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/{{pod.name}}/phenotypes-05kinship-excluded.Rdata"
 
     - name: run-null-model
       inputs:
@@ -720,6 +756,8 @@ spec:
         artifacts:
           - name: phenotype_file
             path: "/mnt/vol/phenotypes.Rdata"
+          - name: phenotype_file_05kinship_excluded
+            path: "/mnt/vol/phenotypes-05kinship-excluded.Rdata"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -754,11 +792,47 @@ spec:
           fi
           echo "out_phenotype_file {{inputs.parameters.out_prefix}}_phenotypes.Rdata" >> $CONFIG
 
-          set -xe
+          set -e
           cat $CONFIG
-
-          Rscript /usr/local/analysis_pipeline/R/null_model.R $CONFIG
-          Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0
+                
+          # Try null model for full phenotypes data
+          echo "Running null model for full phenotypes data..."
+          set +e
+          output=`Rscript /usr/local/analysis_pipeline/R/null_model.R $CONFIG 2>&1`
+          error_code=$?
+          echo "$output"
+          if [ $error_code = 0 ]; then
+            set -e
+            echo "Null model for full phenotypes data completed successfully"
+            Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0  
+          else
+            echo "Null model for full phenotypes failed"
+            if [[ $output = *"Cholesky"* ]]; then    
+              set +e
+              echo "Cholesky error found"
+              echo "Running null model for phenotypes with 0.5 kinship excluded..."
+              sed -i -e "s|{{inputs.artifacts.phenotype_file.path}}|{{inputs.artifacts.phenotype_file_05kinship_excluded.path}}|g" $CONFIG
+              cat $CONFIG
+              output=`Rscript /usr/local/analysis_pipeline/R/null_model.R $CONFIG 2>&1`
+              error_code=$?
+              echo "$output"
+              if [ $error_code = 0 ]; then
+                set -e
+                echo "Null model for phenotypes with 0.5 kinship excluded completed successfully"
+                Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0
+              else
+                set -e
+                echo "Null model for phenotypes with 0.5 kinship excluded failed"
+                exit $error_code
+              fi  
+            else 
+              set -e
+              exit $error_code
+            fi
+          fi
+          
+          set -xe
+          
           ls -al
 
           DATADIR={{inputs.parameters.out_prefix}}_datadir
@@ -1233,12 +1307,6 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}_manhattan.png"
-              # accessKeySecret:
-              #   name: argo-s3-creds
-              #   key: AccessKeyId
-              # secretKeySecret:
-              #   name: argo-s3-creds
-              #   key: SecretAccessKey
           - name: qq_plot
             path: "{{inputs.artifacts.combined.path}}/{{inputs.parameters.out_prefix}}_qq.png"
             archive:
@@ -1437,12 +1505,6 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.manhattan.json"
-            #   accessKeySecret:
-            #     name: argo-s3-creds
-            #     key: AccessKeyId
-            #   secretKeySecret:
-            #     name: argo-s3-creds
-            #     key: SecretAccessKey
           - name: pheweb_qq_json
             path: "/mnt/vol/{{inputs.parameters.out_prefix}}.pheweb.qq.json"
             archive:
@@ -1451,12 +1513,6 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}"
               key: "{{workflow.name}}/{{workflow.name}}.{{inputs.parameters.out_prefix}}.pheweb.qq.json"
-            #   accessKeySecret:
-            #     name: argo-s3-creds
-            #     key: AccessKeyId
-            #   secretKeySecret:
-            #     name: argo-s3-creds
-            #     key: SecretAccessKey
 
     - name: curate-gwas-hits
       inputs:
@@ -1573,12 +1629,6 @@ spec:
               endpoint: s3.amazonaws.com
               bucket: "{{inputs.parameters.downloadable_bucket}}" 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
-            #   accessKeySecret:
-            #     name: argo-s3-creds
-            #     key: AccessKeyId
-            #   secretKeySecret:
-            #     name: argo-s3-creds
-            #     key: SecretAccessKey
 
     - name: create-indexd-record
       inputs:
