@@ -119,6 +119,6 @@ spec:
         claimName: vhdcprod-input-data-bucket-claim
     - name: workdir
       emptyDir:
-        sizeLimit: "10Gi"
+        sizeLimit: "20Gi"
   workflowTemplateRef:
-    name: gwas-template-cholesky
+    name: gwas-template-genesisupdate
