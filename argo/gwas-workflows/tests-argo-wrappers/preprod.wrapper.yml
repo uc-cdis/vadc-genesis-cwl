@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-database-version
+        value: gwas-template-genesisupdate
       - name: internal_api_env
         value: default
       - name: source_id
