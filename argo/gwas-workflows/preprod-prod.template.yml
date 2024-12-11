@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-cholesky
+  name: gwas-template-genesisupdate
   annotations:
-    version: 1.0.8
+    version: 1.0.9
     description: |
-      * Added fix for Cholesky error
+      * Update the topmed pipeline version from 2.12.0 to 2.34.0
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -664,7 +664,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -762,7 +762,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -804,7 +804,7 @@ spec:
           if [ $error_code = 0 ]; then
             set -e
             echo "Null model for full phenotypes data completed successfully"
-            Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0  
+            Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.34.0  
           else
             echo "Null model for full phenotypes failed"
             if [[ $output = *"Cholesky"* ]]; then    
@@ -819,7 +819,7 @@ spec:
               if [ $error_code = 0 ]; then
                 set -e
                 echo "Null model for phenotypes with 0.5 kinship excluded completed successfully"
-                Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.12.0
+                Rscript /usr/local/analysis_pipeline/R/null_model_report.R $CONFIG --version 2.34.0
               else
                 set -e
                 echo "Null model for phenotypes with 0.5 kinship excluded failed"
@@ -888,7 +888,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -948,7 +948,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
@@ -1007,7 +1007,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         command: [bash]
         source: |
@@ -1122,7 +1122,7 @@ spec:
         limit: "5"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1209,7 +1209,7 @@ spec:
         limit: "4"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1262,7 +1262,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1326,7 +1326,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0
@@ -1415,7 +1415,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.12.0
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/topmed-master:2.34.0
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsUser: 0

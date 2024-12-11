@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-database-version
+        value: gwas-template-genesisupdate
       - name: internal_api_env
         value: default
       - name: source_id
@@ -119,6 +119,6 @@ spec:
         claimName: vhdcprod-input-data-bucket-claim
     - name: workdir
       emptyDir:
-        sizeLimit: "10Gi"
+        sizeLimit: "20Gi"
   workflowTemplateRef:
-    name: gwas-template-cholesky
+    name: gwas-template-genesisupdate
