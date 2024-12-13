@@ -563,7 +563,7 @@ spec:
             archive:
               none: {}
             s3:
-              key: "{{workflow.name}}/attrition_csvs"
+              key: "{{workflow.name}}/descriptive_stats"
           - name: descriptive_statistics_json
             path: /mnt/vol/{{workflow.name}}.descriptive_stats.json
             archive:
