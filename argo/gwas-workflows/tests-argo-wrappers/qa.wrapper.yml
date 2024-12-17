@@ -29,7 +29,7 @@ spec:
       - name: source_id
         value: 2
       - name: source_population_cohort
-        value: 468
+        value: 559
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
@@ -41,13 +41,13 @@ spec:
       - name: variables
         value: |
           [
-            { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
+            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
+          { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
