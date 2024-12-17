@@ -41,13 +41,13 @@ spec:
       - name: variables
         value: |
           [
-            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053 }
+            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053 }
+          { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file
