@@ -164,6 +164,8 @@ spec:
                   value: "{{inputs.parameters.outcome}}"
                 - name: downloadable_bucket
                   value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
               artifacts:
                 - name: variables_validated
                   from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
@@ -533,6 +535,7 @@ spec:
           - name: source_population_cohort
           - name: outcome
           - name: downloadable_bucket
+          - name: hare_population
         artifacts:
           - name: variables_validated
             path: /mnt/vol/variables_validated.json
@@ -549,7 +552,8 @@ spec:
           --variables_json {{inputs.artifacts.variables_validated.path}} \
           --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
           --output_csv_prefix /mnt/vol/descriptive_stats/{{workflow.name}} \
-          --output_combined_json /mnt/vol/{{workflow.name}}.descriptive_stats.json
+          --output_combined_json /mnt/vol/{{workflow.name}}.descriptive_stats.json \
+          --hare_population {{inputs.parameters.hare_population}}
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
