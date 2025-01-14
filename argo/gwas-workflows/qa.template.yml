@@ -635,8 +635,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/attrition_tables"
           - name: gwas_metadata
             path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.gwas_metadata.yaml"
-          - name: descriptive_statistics_json
-            path: "/mnt/vol/{{workflow.name}}.descriptive_stats.json"
+          # - name: descriptive_statistics_json
+          #   path: "/mnt/vol/{{workflow.name}}.descriptive_stats.json"
       script:
         image: quay.io/cdis/alpine-jq:latest
         imagePullPolicy: IfNotPresent
