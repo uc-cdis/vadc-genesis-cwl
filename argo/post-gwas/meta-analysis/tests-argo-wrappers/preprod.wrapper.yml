@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: test-
+  namespace: argo
+  annotations:
+    workflows.argoproj.io/version: ">= 3.2.0"
+    workflow_name: "test"
+  labels:
+    workflows.argoproj.io/archive-strategy: "true"
+    gen3username: "user-vzpgb-40uchicago-2eedu"
+    # team_project /gwas_projects/Uchicago
+    gen3teamproject: "2f677761735f70726f6a656374732f556368696361676f"
+spec:
+  entrypoint: meta-analysis
+  podGC:
+    strategy: OnPodCompletion
+  nodeSelector:
+    role: "{{workflow.name}}"
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "{{workflow.name}}"
+      effect: "NoSchedule"
+  podMetadata:
+    labels:
+      gen3username: "user-vzpgb-40uchicago-2eedu"
+    annotations:
+      gen3username: "vzpgb@uchicago.edu"
+  arguments:
+    parameters:
+      - name: template_version
+        value: meta-analysis-template
+      - name: internal_api_env
+        value: default
+      - name: out_prefix
+        value: vadc_meta
+      - name: team_project    
+        value: "/gwas_projects/Uchicago"
+      - name: maf_threshold
+        value: 0.02
+      - name: gwas_list
+        value: |-
+          [
+            "gwas-workflow-2802255987",
+            "gwas-workflow-7376296112"
+          ]
+      - name: chromosome_list
+        value: |-
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, "X"]
+  volumes:
+    - name: workdir
+      emptyDir:
+        sizeLimit: "40Gi"
+  workflowTemplateRef:
+    name: meta-analysis-template
