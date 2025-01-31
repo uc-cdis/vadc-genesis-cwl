@@ -8,7 +8,7 @@ metadata:
     workflow_name: "test"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-vzpgb-40uchicago-2eedu"
+    gen3username: "user-fan1-40uchicago-2eedu"
     # team_project /gwas_projects/project1
     gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431" 
 spec:
@@ -17,13 +17,13 @@ spec:
     strategy: OnPodSuccess
   podMetadata:
     labels:
-      gen3username: "user-vzpgb-40uchicago-2eedu"
+      gen3username: "user-fan1-40uchicago-2eedu"
     annotations:
-      gen3username: "vzpgb@uchicago.edu"
+      gen3username: "fan1@uchicago.edu"
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-database-version
+        value: gwas-template-descriptive-stats
       - name: internal_api_env
         value: qa-mickey
       - name: source_id
@@ -112,4 +112,4 @@ spec:
       emptyDir:
         sizeLimit: "3Gi"
   workflowTemplateRef:
-    name: gwas-template-database-version
+    name: gwas-template-descriptive-stats

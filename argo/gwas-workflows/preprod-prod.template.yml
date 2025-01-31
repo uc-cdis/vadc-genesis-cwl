@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: gwas-template-genesisupdate
+  name: gwas-template-descriptive-stats
   annotations:
-    version: 1.0.9
+    version: 2.0.0
     description: |
-      * Update the topmed pipeline version from 2.12.0 to 2.34.0
+      * Descriptive statistics information added
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -159,6 +159,28 @@ spec:
               artifacts:
                 - name: pheno_csv
                   from: "{{tasks.get-pheno-csv.outputs.artifacts.pheno_csv}}"
+          - name: get-descriptive-statistics
+            template: get-descriptive-statistics
+            dependencies: [get-downloadable-bucket, process-variables]
+            arguments:
+              parameters:
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: source_id
+                  value: "{{inputs.parameters.source_id}}"
+                - name: hare_concept_id
+                  value: "{{inputs.parameters.hare_concept_id}}"
+                - name: source_population_cohort
+                  value: "{{inputs.parameters.source_population_cohort}}"
+                - name: outcome
+                  value: "{{inputs.parameters.outcome}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+                - name: hare_population
+                  value: "{{inputs.parameters.hare_population}}"
+              artifacts:
+                - name: variables_validated
+                  from: "{{tasks.process-variables.outputs.artifacts.variables_validated}}"
           - name: run-null-model
             template: run-null-model
             dependencies: [generate-pheno]
@@ -352,7 +374,7 @@ spec:
                     key: "{{workflow.name}}/annotated_csvs"
           - name: archive-outputs
             template: archive-outputs
-            dependencies: [get-downloadable-bucket, run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv, curate-gwas-hits]
+            dependencies: [get-downloadable-bucket, run-plots, annotate-statistics, generate-gwas-metadata, generate-attrition-csv, curate-gwas-hits, get-descriptive-statistics]
             arguments:
               parameters:
                 - name: out_prefix
@@ -375,6 +397,8 @@ spec:
                   from: "{{tasks.curate-gwas-hits.outputs.artifacts.top_hits_csv}}"
                 - name: below_cutoff_csv
                   from: "{{tasks.curate-gwas-hits.outputs.artifacts.below_cutoff_csv}}"
+                - name: descriptive_statistics_json  
+                  from: "{{tasks.get-descriptive-statistics.outputs.artifacts.descriptive_statistics_json}}"
           - name: create-indexd-record
             template: create-indexd-record
             dependencies: [get-downloadable-bucket, archive-outputs, generate-pheweb-json]
@@ -742,6 +766,57 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/{{pod.name}}/phenotypes-05kinship-excluded.Rdata"
+
+    - name: get-descriptive-statistics
+      inputs:
+        parameters:
+          - name: source_id
+          - name: internal_api_env
+          - name: hare_concept_id
+          - name: source_population_cohort
+          - name: outcome
+          - name: downloadable_bucket
+          - name: hare_population
+        artifacts:
+          - name: variables_validated
+            path: /mnt/vol/variables_validated.json
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:feature_VADC-1578 
+        imagePullPolicy: Always
+        command: ["/bin/bash"]
+        source: |
+          mkdir /mnt/vol/descriptive_stats
+          /env/bin/vadc-gwas-tools GetDescriptiveStatistics \
+          --source_id {{inputs.parameters.source_id}} \
+          --source_population_cohort {{inputs.parameters.source_population_cohort}} \
+          --outcome '{{inputs.parameters.outcome}}' \
+          --variables_json {{inputs.artifacts.variables_validated.path}} \
+          --prefixed_breakdown_concept_id {{inputs.parameters.hare_concept_id}} \
+          --output_csv_prefix /mnt/vol/descriptive_stats/{{workflow.name}} \
+          --output_combined_json /mnt/vol/{{workflow.name}}/{{workflow.name}}.descriptive_stats.json \
+          --hare_population "{{inputs.parameters.hare_population}}"
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+      outputs:
+        artifacts:
+          - name: descriptive_stats_directory
+            path: /mnt/vol/descriptive_stats
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/descriptive_stats"
+          - name: descriptive_statistics_json
+            path: /mnt/vol/descriptive_stats/{{workflow.name}}.descriptive_stats.json
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/{{workflow.name}}.descriptive_stats.json"
 
     - name: run-null-model
       inputs:
@@ -1585,6 +1660,8 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}.top_hits.csv.gz"
           - name: below_cutoff_csv
             path: "/mnt/vol/{{workflow.name}}/{{inputs.parameters.out_prefix}}.below_cutoff_hits.csv.gz"
+          - name: descriptive_statistics_json
+            path: "/mnt/vol/{{workflow.name}}/{{workflow.name}}.descriptive_stats.json"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"

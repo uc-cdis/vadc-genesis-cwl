@@ -10,7 +10,7 @@ metadata:
     workflows.argoproj.io/archive-strategy: "true"
     gen3username: "user-vzpgb-40uchicago-2eedu"
     # team_project /gwas_projects/Uchicago
-    gen3teamproject: "2f677761735f70726f6a656374732f556368696361676f"
+    gen3teamproject: "2f677761735f70726f6a656374732f556368696361676f" #pragma: allowlist secret
 spec:
   entrypoint: gwas-workflow
   podGC:
@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-genesisupdate
+        value: gwas-template-descriptive-stats
       - name: internal_api_env
         value: default
       - name: source_id
@@ -121,4 +121,4 @@ spec:
       emptyDir:
         sizeLimit: "20Gi"
   workflowTemplateRef:
-    name: gwas-template-genesisupdate
+    name: gwas-template-descriptive-stats
