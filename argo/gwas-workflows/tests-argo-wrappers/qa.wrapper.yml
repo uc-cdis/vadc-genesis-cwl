@@ -41,8 +41,7 @@ spec:
       - name: variables
         value: |
           [
-            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" },
-            { "variable_type": "concept", "concept_id": 2000006000, "concept_name": "height-2000006000" }
+            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
           ]
       - name: out_prefix
         value: vadc_genesis
