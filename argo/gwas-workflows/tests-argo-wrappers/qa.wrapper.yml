@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: test-wrapper-
+  generateName: continuous-workflow-with-outcome-and-covar-
   namespace: argo
   annotations:
     workflows.argoproj.io/version: ">= 3.1.0"
     workflow_name: "test"
   labels:
     workflows.argoproj.io/archive-strategy: "true"
-    gen3username: "user-aartiv-40uchicago-2eedu"
+    gen3username: "user-fan1-40uchicago-2eedu"
     # team_project /gwas_projects/project1
     gen3teamproject: "2f677761735f70726f6a656374732f70726f6a65637431" 
 spec:
@@ -17,9 +17,9 @@ spec:
     strategy: OnPodSuccess
   podMetadata:
     labels:
-      gen3username: "user-aartiv-40uchicago-2eedu"
+      gen3username: "user-fan1-40uchicago-2eedu"
     annotations:
-      gen3username: "aartiv@uchicago.edu"
+      gen3username: "fan1@uchicago.edu"
   arguments:
     parameters:
       - name: template_version
@@ -29,7 +29,7 @@ spec:
       - name: source_id
         value: 2
       - name: source_population_cohort
-        value: 468
+        value: 559
       - name: hare_population
         value: "non-Hispanic Asian"
       - name: hare_concept_id
@@ -41,13 +41,14 @@ spec:
       - name: variables
         value: |
           [
-            { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
+            { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" },
+            { "variable_type": "concept", "concept_id": 2000006000, "concept_name": "height-2000006000" }
           ]
       - name: out_prefix
         value: vadc_genesis
       - name: outcome
         value: |-
-          { "variable_type": "concept", "concept_id": 2000006885, "concept_name": "Attribute10" }
+          { "variable_type": "concept", "concept_id": 2100007053, "concept_name": "concept-name-large-2100007053" }
       - name: pca_file
         value: /commons-data/pcs.RData
       - name: relatedness_matrix_file

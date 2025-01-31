@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: gwas-template-genesisupdate
+        value: gwas-template-descriptive-stats
       - name: internal_api_env
         value: default
       - name: source_id
@@ -121,4 +121,4 @@ spec:
       emptyDir:
         sizeLimit: "20Gi"
   workflowTemplateRef:
-    name: gwas-template-genesisupdate
+    name: gwas-template-descriptive-stats
