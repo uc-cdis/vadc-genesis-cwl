@@ -1,0 +1,625 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: meta-analysis-template
+  annotations:
+    version: 0.0.1
+    description: |
+      Workflow to perform GWAS meta analysis
+spec:
+  # must complete in 8h (28,800 seconds)
+  activeDeadlineSeconds: 28800
+  # keep workflow for 10 seconds
+  ttlStrategy:
+    secondsAfterCompletion: 10
+  podMetadata:
+    annotations:
+      karpenter.sh/do-not-evict: "true"
+  entrypoint: meta-analysis
+  templates:
+    - name: meta-analysis
+      inputs:
+        parameters:
+          - name: out_prefix
+            value: vadc_meta
+          - name: internal_api_env
+            default: default
+          - name: team_project
+          - name: maf_threshold
+            default: 0.01
+          - name: gwas_list
+          - name: chromosome_list
+            value: |-
+              [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, "X"]
+      dag:
+        tasks:
+        
+          # Get downloadable bucket
+          - name: get-downloadable-bucket
+            template: get-downloadable-bucket
+
+          # Save inputs in json
+          - name: pass-inputs
+            template: pass-inputs
+
+          # Get data gwas and chromosome data from downloadable bucket, unzip it and save
+          - name: process-inputs
+            template: process-inputs
+            dependencies: [get-downloadable-bucket, pass-inputs]
+            arguments:
+              parameters:
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+                - name: gwas
+                  value: "{{item}}"
+            withParam: "{{inputs.parameters.gwas_list}}"
+
+          - name: format-data
+            template: format-data
+            dependencies: [process-inputs]
+            arguments:
+              parameters:
+                - name: gwas
+                  value: "{{item}}"
+              artifacts:
+                - name: gwas_chromosome_data
+                  s3:
+                    key: "{{workflow.name}}/gwas_chromosome_data"
+            withParam: "{{inputs.parameters.gwas_list}}"
+
+          # Run METAL analysis per chromosome
+          - name: run-analysis
+            template: run-analysis
+            dependencies: [format-data]
+            arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item}}"
+              artifacts:
+                - name: formatted_data
+                  s3:
+                    key: "{{workflow.name}}/formatted_data"
+            withParam: "{{inputs.parameters.chromosome_list}}"
+
+          # Archive outputs
+          - name: archive-outputs
+            template: archive-outputs
+            dependencies: [run-analysis]
+            arguments:
+              parameters:
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: meta_analysis
+                  s3:
+                    key: "{{workflow.name}}/meta_analysis"
+                - name: workflow_inputs_json
+                  s3:
+                    key: "{{workflow.name}}/workflow_inputs.json"
+           
+          # Create indexd records
+          - name: create-indexd-record
+            template: create-indexd-record
+            dependencies: [archive-outputs]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "{{inputs.parameters.team_project}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: meta_analysis_archive
+                  from: "{{tasks.archive-outputs.outputs.artifacts.meta_analysis_archive}}"           
+          
+
+
+      ## Define each step
+    - name: get-downloadable-bucket
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.6
+        imagePullPolicy: IfNotPresent
+        command: [/bin/bash]
+        source: |
+          echo "Bash version:"
+          echo $(bash --version)
+
+          echo "Locale:"
+          echo $(locale)
+
+          if [ -z $DOWNLOADABLE_BUCKET ]; then
+            echo "Downloadable bucket is not found or set to empty string"
+            exit 1
+          else
+            echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
+            echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+          fi
+          
+          # Check if downloadble bucket is accessible
+          aws s3api head-bucket --bucket $DOWNLOADABLE_BUCKET
+          if [ $? -ne 0 ]; then
+            echo "AWS command failed: bucket $DOWNLOADABLE_BUCKET not found or not accessible"
+            exit 1
+          else
+            echo "AWS command succeeded: bucket $DOWNLOADABLE_BUCKET found and is accessible"
+          fi         
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: DOWNLOADABLE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: argo-template-values-secret
+              key: DOWNLOADABLE_BUCKET
+      outputs:
+        parameters:
+          - name: downloadable_bucket
+            valueFrom:
+              path: "/mnt/vol/downloadable_bucket.txt"
+
+    - name: pass-inputs
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+            set -xe
+            echo '{
+              "gwas_list": {{workflow.parameters.gwas_list}},
+              "chromosome_list": {{workflow.parameters.chromosome_list}},
+              "maf_threshold": {{workflow.parameters.maf_threshold}}
+            }' | jq -r > /mnt/vol/workflow_inputs.json
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      outputs:
+        artifacts:
+          - name: workflow_inputs_json
+            path: /mnt/vol/workflow_inputs.json
+            archive: 
+              none: {}
+            s3:
+              key: "{{workflow.name}}/workflow_inputs.json"
+      
+    - name: process-inputs
+      inputs: 
+        parameters:
+          - name: downloadable_bucket
+          - name: gwas
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.6
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          echo "Bash version:"
+          echo $(bash --version)
+
+          echo "Locale:"
+          echo $(locale)
+
+          set -e
+          cd /mnt/vol
+          echo "Switched to the working directory /mnt/vol"
+
+          bucket={{inputs.parameters.downloadable_bucket}}
+          gwas={{inputs.parameters.gwas}}
+          echo "Bucket parameter received: $bucket"
+          echo "GWAS parameter received: $gwas"
+
+          # Transform chromosome_list
+          chromosome_list='{{workflow.parameters.chromosome_list}}'
+          chromosome_list=$(echo $chromosome_list | jq -r '.[]')
+          readarray -t chromosome_list <<< "$chromosome_list"
+
+          # Check if workflow is accessible and if it is, copy the data
+          if [[ $(aws s3 ls s3://$bucket/$gwas/ | head) ]]; then
+            echo "AWS command succeeded: folder $gwas found and is accessible"
+            aws s3 cp s3://$bucket/$gwas/$gwas.zip .
+            echo "AWS command succeeded: copied $gwas.zip to the working directory"
+            ls -la
+            unzip $gwas.zip
+            echo "$gwas.zip was unzipped"
+            rm $gwas.zip
+            echo "$gwas.zip was removed"
+            ls -la
+            
+            mkdir gwas_chromosome_data
+            echo "Created folder gwas_chromosome_data"
+
+            csv_path=$gwas/annotated_summary_csvs/
+
+            for chr in ${chromosome_list[@]}
+            do
+              # Find file in cvs_path
+              substring="_chr$chr.annotated_summary.csv.zip"
+              zip_filepath=$(find $csv_path -name "*$substring*" -type f -print -quit)
+              zip_filename=$(basename $zip_filepath)
+              echo "CSV name $filename"
+              # Unzip file
+              echo "Unzipping file $zip_filepath"
+              unzip $zip_filepath
+              echo "File $zip_filepath unzipped"
+              ls -la
+              # Get CSV filename by removing zip extension
+              csv_filename="${zip_filename%.*}"
+              # Create a new filename for the CSV containing gwas id
+              gwas_csv_filename=$gwas.chr$chr.annotated_summary.csv
+              # Rename CSV file
+              echo "Renaming file $csv_filename to $gwas_csv_filename"
+              mv $csv_filename $gwas_csv_filename
+              echo "File $csv_filename renamed to $gwas_csv_filename"
+              ls -la
+              # Take a look at the file
+              echo "Head of $gwas_csv_filename:"
+              head $gwas_csv_filename
+              # Save in gwas_chromosome_data
+              mv $gwas_csv_filename gwas_chromosome_data
+              echo "$gwas_csv_filename moved to gwas_chromosome_data folder"
+              ls -la gwas_chromosome_data/
+            done
+
+            echo "Removing $gwas folder from /mnt/vol"
+            ls -la
+            rm -r $gwas
+            echo "$gwas folder was removed from the working directory /mnt/vol"
+            ls -la
+          else
+            echo "AWS command failed: folder $gwas not found or not accessible"
+            exit 1
+          fi
+          echo "All done!"
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: gwas_chromosome_data
+            path: "/mnt/vol/gwas_chromosome_data"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/gwas_chromosome_data"
+
+    - name: format-data
+      inputs: 
+        parameters:
+          - name: gwas
+        artifacts:
+          - name: gwas_chromosome_data
+            path: "/mnt/vol/gwas_chromosome_data"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.6
+        imagePullPolicy: Always
+        command: [Rscript]
+        source: |
+          library(jsonlite)
+
+          noquote("R.version:")
+          print(R.version)
+          
+          noquote("Locale:")
+          print(Sys.getlocale(category = "LC_ALL"))
+          
+          vectorize_json = Vectorize(fromJSON)
+
+          gwas <- "{{inputs.parameters.gwas}}"
+          datadir <- "{{inputs.artifacts.gwas_chromosome_data.path}}"
+          chromosome_list <- vectorize_json('{{workflow.parameters.chromosome_list}}')
+
+          noquote("GWAS parameter received:")
+          print(gwas)
+          noquote("GWAS chromosome data parameter received:")
+          print(datadir)
+          noquote("Chromosome list parameter derived from workflow parameters:")
+          print(chromosome_list)
+          
+          setwd("/mnt/vol")
+          dir.create("formatted_data")
+          formatted_folder="/mnt/vol/formatted_data/"
+          noquote("Created formatted_data folder:")
+          print(list.files())
+          
+          setwd(datadir)
+          noquote("GWAS chromosome data folder:")
+          print(list.files())
+          
+          gwas_file_pattern <- paste0("^", gwas, ".chr")
+          noquote("GWAS related files:")
+          print(list.files(pattern=gwas_file_pattern))
+
+          for (chr in chromosome_list) {
+            print("Converting CSV to TSV for chromosome:")
+            print(chr)
+            csv_filename <- paste0(gwas, ".chr", chr, ".annotated_summary.csv")
+            tsv_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.tsv")
+            print("Reading CSV file:")
+            print(csv_filename)
+            print("List of related files:")
+            print(list.files(pattern=gwas_file_pattern))
+            chromosome_data <- read.csv(csv_filename)
+            #chromosome_data <- read.table(file=csv_filename, header=TRUE, sep=",")
+            print("Head of chromosome data:")
+            print(head(chromosome_data))
+            write.table(chromosome_data, tsv_filename, sep="\t", row.name=FALSE)
+            print("Chromosome data saved in TSV:")
+            print(tsv_filename)
+            print("List of related files:")
+            print(list.files(pattern=gwas_file_pattern))
+            file.remove(csv_filename)
+            print("CSV file removed:")
+            print(csv_filename)
+            print("List of related files:")
+            print(list.files(pattern=gwas_file_pattern))
+          }
+          
+          noquote("All chromosome files converted for gwas:")
+          print(gwas)
+
+          noquote("Contents of the formatted_data folder")
+          print(list.files(formatted_folder, pattern=gwas_file_pattern))
+
+          noquote("All done!")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+      outputs:
+        artifacts:
+          - name: formatted_data
+            path: "/mnt/vol/formatted_data"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/formatted_data"
+
+    - name: run-analysis
+      inputs: 
+        parameters:
+          - name: chromosome
+        artifacts:
+          - name: formatted_data
+            path: "/mnt/vol/formatted_data"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.6
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          echo "Bash version:"
+          echo $(bash --version)
+
+          echo "Locale:"
+          echo $(locale)
+
+          set -e
+          cd /mnt/vol
+
+          chr={{inputs.parameters.chromosome}}
+          datadir={{inputs.artifacts.formatted_data.path}}
+          gwas_list='{{workflow.parameters.gwas_list}}'
+          maf={{workflow.parameters.maf_threshold}}
+          
+          # Transform gwas_list
+          gwas_list=$(echo $gwas_list | jq -r '.[]')
+          readarray -t gwas_list <<< "$gwas_list"
+          
+          echo "Chromosome parameter received: $chr"
+          echo "GWAS chromosome data parameter received: $datadir"
+          echo "GWAS parameter derived from workflow parameters: ${gwas_list[@]}"
+          echo "MAF threshold parameter derived from workflow parameters: $maf"
+
+          echo "Creating metal_confg folder"
+          mkdir metal_config
+          ls -la
+          pwd
+          echo "Creating config_chr$chr.txt file in /mnt/vol/metal_config"
+          CONFIG="/mnt/vol/metal_config/config_chr$chr.txt"
+          touch $CONFIG
+          
+          echo "Switching to $datadir"
+          cd $datadir
+          echo "Formatted data:"
+          ls -la         
+
+          echo "Adding metal configuration to the /mnt/vol/metal_config/config_chr$chr.txt file"
+          echo "# === DESCRIBE INPUT FILES ===" >> $CONFIG
+          echo "MARKER \"variant.name\"" >> $CONFIG
+          echo "ALLELE \"ref\" \"alt\"" >> $CONFIG
+          echo "FREQ \"freq\"" >> $CONFIG
+          echo "EFFECT \"Est\"" >> $CONFIG
+          echo "STDERR \"Est.SE\"" >> $CONFIG
+          echo "SEPARATOR TAB" >> $CONFIG
+          echo "SCHEME STDERR" >> $CONFIG
+          echo "COLUMNCOUNTING LENIENT" >> $CONFIG
+          echo "AVERAGEFREQ ON" >> $CONFIG
+          echo "MINMAXFREQ ON" >> $CONFIG
+          echo "ADDFILTER \"freq\" > $maf" >> $CONFIG
+
+          echo "# === PROCESS INPUT FILES ===" >> $CONFIG
+          for gwas in ${gwas_list[@]}
+          do
+            gwas_chr_filename=$gwas.chr$chr.annotated_summary.tsv 
+            echo "PROCESS $gwas_chr_filename" >> $CONFIG
+          done
+
+          echo "# === ANALYZE INPUT FILES ===" >> $CONFIG
+          echo "OUTFILE meta_analysis.chr$chr. .tbl" >> $CONFIG
+          echo "ANALYZE HETEROGENEITY" >> $CONFIG
+          echo "QUIT" >> $CONFIG
+
+          echo "Configuration for chromosome $chr"
+          less $CONFIG
+
+          metal $CONFIG
+
+          ls -la
+          mkdir /mnt/vol/meta_analysis
+          mv meta_analysis.chr$chr.* /mnt/vol/meta_analysis/
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+      outputs:
+        artifacts:
+          - name: meta_analysis
+            path: "/mnt/vol/meta_analysis"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/meta_analysis"
+          - name: metal_config
+            path: "/mnt/vol/metal_config"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/metal_config"
+          - name: metal_config_chr{{inputs.parameters.chromosome}}
+            path: "/mnt/vol/metal_config/config_chr{{inputs.parameters.chromosome}}.txt"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/metal_config/config_chr{{inputs.parameters.chromosome}}.txt"
+          
+    - name: archive-outputs
+      inputs:
+        parameters:
+          - name: downloadable_bucket
+        artifacts:
+          - name: meta_analysis
+            mode: 511
+            path: "/mnt/vol/{{workflow.name}}/meta_analysis"
+          - name: workflow_inputs_json
+            path: "/mnt/vol/{{workflow.name}}/meta_analysis_inputs.json"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.6
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          echo "Bash version:"
+          echo $(bash --version)
+
+          echo "Locale:"
+          echo $(locale)
+
+          cd /mnt/vol/
+          zip -r {{workflow.name}}.zip {{workflow.name}}/
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+      outputs:
+        artifacts:
+          - name: meta_analysis_archive
+            path: "/mnt/vol/{{workflow.name}}.zip"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}" 
+              key: "{{workflow.name}}/{{workflow.name}}.zip"
+
+    - name: create-indexd-record
+      inputs:
+        parameters:
+          - name: arborist_resource
+          - name: internal_api_env
+          - name: out_prefix
+          - name: downloadable_bucket
+        artifacts:
+          - name: meta_analysis_archive
+            path: "/mnt/vol/{{workflow.name}}.zip"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      container:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.meta_analysis_archive.path}} \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.zip \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_archive.json"]
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+      outputs:
+        parameters:
+          # Use gwas_archive_index for now to test downloading from Results App
+          # Rename to meta_archive_index once Results App UI supports it.
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did_archive.json
+            globalName: gwas_archive_index
