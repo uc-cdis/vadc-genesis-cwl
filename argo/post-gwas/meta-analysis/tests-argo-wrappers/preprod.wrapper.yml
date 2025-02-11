@@ -33,8 +33,6 @@ spec:
         value: meta-template-visualization
       - name: internal_api_env
         value: default
-      - name: out_prefix
-        value: vadc_meta
       - name: team_project    
         value: "/gwas_projects/Uchicago"
       - name: maf_threshold

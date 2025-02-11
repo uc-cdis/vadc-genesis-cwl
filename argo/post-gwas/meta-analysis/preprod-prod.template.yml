@@ -3,6 +3,7 @@ kind: WorkflowTemplate
 metadata:
   name: meta-template-visualization
   annotations:
+    workflow_name: "Meta-Analysis Workflow"
     version: 0.0.2
     description: |
       * Add steps for visualization
@@ -20,8 +21,6 @@ spec:
     - name: meta-analysis
       inputs:
         parameters:
-          - name: out_prefix
-            value: vadc_meta
           - name: internal_api_env
             default: default
           - name: team_project
@@ -107,8 +106,6 @@ spec:
                   value: "{{inputs.parameters.team_project}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
-                - name: out_prefix
-                  value: "{{inputs.parameters.out_prefix}}"
                 - name: downloadable_bucket
                   value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
@@ -176,16 +173,17 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/alpine-jq:latest
+        image: quay.io/cdis/post_gwas:0.0.6
         imagePullPolicy: IfNotPresent
-        command: [/bin/sh]
+        command: [/bin/bash]
         source: |
             set -xe
             echo '{
+              "meta_analysis_id": "{{workflow.name}}",
+              "meta_analysis_name": "{{workflow.annotations.workflow_name}}",
               "gwas_list": {{workflow.parameters.gwas_list}},
-              "chromosome_list": {{workflow.parameters.chromosome_list}},
               "maf_threshold": {{workflow.parameters.maf_threshold}}
-            }' | jq -r > /mnt/vol/workflow_inputs.json
+            }' | jq -r . > /mnt/vol/workflow_inputs.json
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -215,7 +213,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -266,7 +264,7 @@ spec:
               echo "Unzipping file $zip_filepath"
               unzip $zip_filepath
               echo "File $zip_filepath unzipped"
-              ls -la
+              #ls -la
               # Get CSV filename by removing zip extension
               csv_filename="${zip_filename%.*}"
               # Create a new filename for the CSV containing gwas id
@@ -275,21 +273,23 @@ spec:
               echo "Renaming file $csv_filename to $gwas_csv_filename"
               mv $csv_filename $gwas_csv_filename
               echo "File $csv_filename renamed to $gwas_csv_filename"
-              ls -la
+              #ls -la
               # Take a look at the file
-              echo "Head of $gwas_csv_filename:"
-              head $gwas_csv_filename
+              #echo "Head of $gwas_csv_filename:"
+              #head $gwas_csv_filename
               # Save in gwas_chromosome_data
               mv $gwas_csv_filename gwas_chromosome_data
               echo "$gwas_csv_filename moved to gwas_chromosome_data folder"
-              ls -la gwas_chromosome_data/
+              #ls -la gwas_chromosome_data/
             done
 
             echo "Removing $gwas folder from /mnt/vol"
-            ls -la
+            #ls -la
             rm -r $gwas
             echo "$gwas folder was removed from the working directory /mnt/vol"
-            ls -la
+            #ls -la
+            echo "Content of gwas_chromosome_data folder"
+            ls -la gwas_chromosome_data/
           else
             echo "AWS command failed: folder $gwas not found or not accessible"
             exit 1
@@ -319,7 +319,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
           library(jsonlite)
@@ -357,35 +357,42 @@ spec:
           noquote("GWAS related files:")
           print(list.files(pattern=gwas_file_pattern))
 
+          keep_columns=c("variant.name", "ref", "alt", "freq", "Est", "Est.SE")
           for (chr in chromosome_list) {
-            print("Converting CSV to TSV for chromosome:")
+            print("Formatting CSV for chromosome:")
             print(chr)
-            csv_filename <- paste0(gwas, ".chr", chr, ".annotated_summary.csv")
-            tsv_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.tsv")
+            input_filename <- paste0(gwas, ".chr", chr, ".annotated_summary.csv")
+            output_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.csv")
             print("Reading CSV file:")
-            print(csv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
-            chromosome_data <- read.csv(csv_filename)
-            #chromosome_data <- read.table(file=csv_filename, header=TRUE, sep=",")
-            print("Head of chromosome data:")
-            print(head(chromosome_data))
-            write.table(chromosome_data, tsv_filename, sep="\t", row.name=FALSE)
-            print("Chromosome data saved in TSV:")
-            print(tsv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
-            file.remove(csv_filename)
-            print("CSV file removed:")
-            print(csv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
+            print(input_filename)
+            #print("List of related files:")
+            #print(list.files(pattern=gwas_file_pattern))
+            chromosome_data <- read.csv(input_filename)
+            print("Initial chromosome data dimensions:")
+            print(dim(chromosome_data))
+            #print("Head of chromosome data:")
+            #print(head(chromosome_data))
+            print("Keeping columns:")
+            print(keep_columns)
+            chromosome_data <- chromosome_data[keep_columns]
+            print("Formatted chromosome data dimensions:")
+            print(dim(chromosome_data))
+            write.table(chromosome_data, output_filename, sep=",", row.name=FALSE)
+            print("Formatted data saved in CSV:")
+            print(output_filename)
+            #print("List of related files:")
+            #print(list.files(pattern=gwas_file_pattern))
+            file.remove(input_filename)
+            print("Initial CSV file removed:")
+            print(input_filename)
+            #print("List of related files:")
+            #print(list.files(pattern=gwas_file_pattern))
           }
           
           noquote("All chromosome files converted for gwas:")
           print(gwas)
 
-          noquote("Contents of the formatted_data folder")
+          noquote("Content of the formatted_data folder")
           print(list.files(formatted_folder, pattern=gwas_file_pattern))
 
           noquote("All done!")
@@ -420,7 +427,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -467,8 +474,8 @@ spec:
           echo "FREQ \"freq\"" >> $CONFIG
           echo "EFFECT \"Est\"" >> $CONFIG
           echo "STDERR \"Est.SE\"" >> $CONFIG
-          echo "SEPARATOR TAB" >> $CONFIG
           echo "COLUMNCOUNTING STRICT" >> $CONFIG
+          echo "SEPARATOR COMMA" >> $CONFIG
           echo "AVERAGEFREQ ON" >> $CONFIG
           echo "MINMAXFREQ ON" >> $CONFIG
           echo "ADDFILTER \"freq\" > $maf" >> $CONFIG
@@ -476,7 +483,7 @@ spec:
           echo "# === PROCESS INPUT FILES ===" >> $CONFIG
           for gwas in ${gwas_list[@]}
           do
-            gwas_chr_filename=$gwas.chr$chr.annotated_summary.tsv 
+            gwas_chr_filename=$gwas.chr$chr.annotated_summary.csv
             echo "PROCESS $gwas_chr_filename" >> $CONFIG
           done
 
@@ -488,11 +495,15 @@ spec:
           echo "Configuration for chromosome $chr"
           less $CONFIG
 
+          echo "Running analysis"
           metal $CONFIG
+          echo "Analysis completed" 
 
-          ls -la
           mkdir /mnt/vol/meta_analysis
-          mv meta_analysis.chr$chr.* /mnt/vol/meta_analysis/
+          mv meta_analysis.chr$chr* /mnt/vol/meta_analysis/
+          echo "Output tbl file moved to /mnt/vol/meta_analysis/"
+          ls -la /mnt/vol/meta_analysis/
+          echo "All done!"
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -539,7 +550,7 @@ spec:
         retryPolicy: "Always"
       script:
         image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -576,7 +587,6 @@ spec:
         parameters:
           - name: arborist_resource
           - name: internal_api_env
-          - name: out_prefix
           - name: downloadable_bucket
         artifacts:
           - name: meta_analysis_archive
