@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: meta-analysis-template
+  name: meta-template-visualization
   annotations:
-    version: 0.0.1
+    version: 0.0.2
     description: |
-      Workflow to perform GWAS meta analysis
+      * Add steps for visualization
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -461,14 +461,14 @@ spec:
 
           echo "Adding metal configuration to the /mnt/vol/metal_config/config_chr$chr.txt file"
           echo "# === DESCRIBE INPUT FILES ===" >> $CONFIG
+          echo "SCHEME STDERR" >> $CONFIG
           echo "MARKER \"variant.name\"" >> $CONFIG
           echo "ALLELE \"ref\" \"alt\"" >> $CONFIG
           echo "FREQ \"freq\"" >> $CONFIG
           echo "EFFECT \"Est\"" >> $CONFIG
           echo "STDERR \"Est.SE\"" >> $CONFIG
           echo "SEPARATOR TAB" >> $CONFIG
-          echo "SCHEME STDERR" >> $CONFIG
-          echo "COLUMNCOUNTING LENIENT" >> $CONFIG
+          echo "COLUMNCOUNTING STRICT" >> $CONFIG
           echo "AVERAGEFREQ ON" >> $CONFIG
           echo "MINMAXFREQ ON" >> $CONFIG
           echo "ADDFILTER \"freq\" > $maf" >> $CONFIG

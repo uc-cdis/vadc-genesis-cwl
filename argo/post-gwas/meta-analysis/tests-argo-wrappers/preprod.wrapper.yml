@@ -30,7 +30,7 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: meta-analysis-template
+        value: meta-template-visualization
       - name: internal_api_env
         value: default
       - name: out_prefix
@@ -53,4 +53,4 @@ spec:
       emptyDir:
         sizeLimit: "40Gi"
   workflowTemplateRef:
-    name: meta-analysis-template
+    name: meta-template-visualization
