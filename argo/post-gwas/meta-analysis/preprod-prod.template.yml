@@ -120,7 +120,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -173,7 +173,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -212,7 +212,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -318,11 +318,12 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
           library(jsonlite)
+          library(data.table)
 
           noquote("R.version:")
           print(R.version)
@@ -357,7 +358,7 @@ spec:
           noquote("GWAS related files:")
           print(list.files(pattern=gwas_file_pattern))
 
-          keep_columns=c("variant.name", "ref", "alt", "freq", "Est", "Est.SE")
+          keep_columns=c("variant.name", "ref", "alt", "freq", "Est", "Est.SE", "chr", "pos")
           for (chr in chromosome_list) {
             print("Formatting CSV for chromosome:")
             print(chr)
@@ -365,28 +366,17 @@ spec:
             output_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.csv")
             print("Reading CSV file:")
             print(input_filename)
-            #print("List of related files:")
-            #print(list.files(pattern=gwas_file_pattern))
-            chromosome_data <- read.csv(input_filename)
-            print("Initial chromosome data dimensions:")
-            print(dim(chromosome_data))
-            #print("Head of chromosome data:")
-            #print(head(chromosome_data))
             print("Keeping columns:")
             print(keep_columns)
-            chromosome_data <- chromosome_data[keep_columns]
-            print("Formatted chromosome data dimensions:")
+            chromosome_data <- fread(input_filename, select=keep_columns)
+            print("Chromosome data dimensions:")
             print(dim(chromosome_data))
             write.table(chromosome_data, output_filename, sep=",", row.name=FALSE)
             print("Formatted data saved in CSV:")
             print(output_filename)
-            #print("List of related files:")
-            #print(list.files(pattern=gwas_file_pattern))
             file.remove(input_filename)
             print("Initial CSV file removed:")
             print(input_filename)
-            #print("List of related files:")
-            #print(list.files(pattern=gwas_file_pattern))
           }
           
           noquote("All chromosome files converted for gwas:")
@@ -426,7 +416,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -474,8 +464,11 @@ spec:
           echo "FREQ \"freq\"" >> $CONFIG
           echo "EFFECT \"Est\"" >> $CONFIG
           echo "STDERR \"Est.SE\"" >> $CONFIG
+          echo "CHROMOSOME \"chr\"" >> $CONFIG
+          echo "POSITION \"pos\"" >> $CONFIG
           echo "COLUMNCOUNTING STRICT" >> $CONFIG
           echo "SEPARATOR COMMA" >> $CONFIG
+          echo "TRACKPOSITIONS ON" >> $CONFIG
           echo "AVERAGEFREQ ON" >> $CONFIG
           echo "MINMAXFREQ ON" >> $CONFIG
           echo "ADDFILTER \"freq\" > $maf" >> $CONFIG
@@ -549,7 +542,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
