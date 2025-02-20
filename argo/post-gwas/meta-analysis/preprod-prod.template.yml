@@ -53,6 +53,7 @@ spec:
                   value: "{{item}}"
             withParam: "{{inputs.parameters.gwas_list}}"
 
+          # Format data for METAL analysis per gwas
           - name: format-data
             template: format-data
             dependencies: [process-inputs]
@@ -80,10 +81,20 @@ spec:
                     key: "{{workflow.name}}/formatted_data"
             withParam: "{{inputs.parameters.chromosome_list}}"
 
+          # Create Manhattan and QQ plots
+          - name: create-plots
+            template: create-plots
+            dependencies: [run-analysis]
+            arguments:
+              artifacts:
+                - name: meta_analysis
+                  s3:
+                    key: "{{workflow.name}}/meta_analysis"
+
           # Archive outputs
           - name: archive-outputs
             template: archive-outputs
-            dependencies: [run-analysis]
+            dependencies: [create-plots]
             arguments:
               parameters:
                 - name: downloadable_bucket
@@ -95,6 +106,12 @@ spec:
                 - name: workflow_inputs_json
                   s3:
                     key: "{{workflow.name}}/workflow_inputs.json"
+                - name: manhattan_plot
+                  s3:
+                    key: "{{workflow.name}}/manhattan.png"
+                - name: qq_plot
+                  s3:
+                    key: "{{workflow.name}}/qq.png"
            
           # Create indexd records
           - name: create-indexd-record
@@ -114,7 +131,8 @@ spec:
           
 
 
-      ## Define each step
+    # Define each step
+    # Get downloadable bucket
     - name: get-downloadable-bucket
       retryStrategy:
         limit: "3"
@@ -168,6 +186,7 @@ spec:
             valueFrom:
               path: "/mnt/vol/downloadable_bucket.txt"
 
+    # Save inputs in json
     - name: pass-inputs
       retryStrategy:
         limit: "3"
@@ -202,7 +221,8 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/workflow_inputs.json"
-      
+
+    # Get data gwas and chromosome data from downloadable bucket, unzip it and save  
     - name: process-inputs
       inputs: 
         parameters:
@@ -307,6 +327,7 @@ spec:
             s3:
               key: "{{workflow.name}}/gwas_chromosome_data"
 
+    # Format data for METAL analysis per gwas
     - name: format-data
       inputs: 
         parameters:
@@ -405,6 +426,7 @@ spec:
             s3:
               key: "{{workflow.name}}/formatted_data"
 
+    # Run METAL analysis per chromosome
     - name: run-analysis
       inputs: 
         parameters:
@@ -527,7 +549,103 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/metal_config/config_chr{{inputs.parameters.chromosome}}.txt"
+
+    # Create Manhattan and QQ plots
+    - name: create-plots
+      inputs:
+        artifacts:
+          - name: meta_analysis
+            mode: 511
+            path: "/mnt/vol/meta_analysis"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+      script:
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(data.table)
+          library(qqman)
+          library(RColorBrewer)
+
+          noquote("R.version:")
+          print(R.version)
+
+          print(Sys.getlocale(category = "LC_ALL"))
           
+          setwd("/mnt/vol/meta_analysis")
+          noquote("Meta analysis results received:")
+          print(list.files())
+
+          metal_results_pattern <- paste0(".tbl$")
+          file_names <- list.files(pattern=metal_results_pattern)
+          noquote("Files for Manhattan and QQ plots:")
+          print(file_names)
+          keep_columns <- c("MarkerName", "P-value", "Chromosome", "Position")
+          noquote("Columns to keep:")
+          print(keep_columns)
+          combined_dataframe <- do.call(rbind, lapply(file_names, fread, select=keep_columns))
+          noquote("Initial combined dataframe created, dimensions:")
+          print(dim(combined_dataframe))
+
+          combined_dataframe$ChromosomeNumber <- substring(combined_dataframe$Chromosome, 4)
+          chr_labs=unique(combined_dataframe$ChromosomeNumber)
+          combined_dataframe$ChromosomeNumber[combined_dataframe$ChromosomeNumber == "X"] <- 23
+          combined_dataframe$ChromosomeNumber <- as.numeric(combined_dataframe$ChromosomeNumber)
+          combined_dataframe$Snp <- NA
+          noquote("Combined dataframe formatted, dimensions:")
+          print(dim(combined_dataframe))
+
+          chr <- unique(combined_dataframe$ChromosomeNumber)
+          cmap <- setNames(rep_len(brewer.pal(8, "Dark2"), length(chr)), chr)
+
+          setwd("/mnt/vol/")
+          png("manhattan.png", width=10, height=5, units="in", res=300)
+          manhattan(combined_dataframe, 
+                    chr="ChromosomeNumber", bp="Position",
+                    snp="Snp", p="P-value",
+                    chrlabs=chr_labs,
+                    col=cmap,
+                    suggestiveline=FALSE
+                    )
+          dev.off()
+          noquote("Manhattan plot created:")
+          print(list.files())
+
+          png("qq.png", width=6, height=6, units="in", res=300)
+          qq_plot <- qq(combined_dataframe$`P-value`)
+          dev.off()
+          noquote("QQ plot created:")
+          print(list.files())
+
+          noquote("All done!")
+      outputs:
+        artifacts:
+          - name: manhattan_plot
+            path: "/mnt/vol/manhattan.png"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/manhattan.png"        
+          - name: qq_plot
+            path: "/mnt/vol/qq.png"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/qq.png"    
+   
+    # Archive outputs
     - name: archive-outputs
       inputs:
         parameters:
@@ -538,6 +656,10 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/meta_analysis"
           - name: workflow_inputs_json
             path: "/mnt/vol/{{workflow.name}}/meta_analysis_inputs.json"
+          - name: manhattan_plot
+            path: "/mnt/vol/{{workflow.name}}/manhattan.png"
+          - name: qq_plot
+            path: "/mnt/vol/{{workflow.name}}/qq.png"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -575,6 +697,7 @@ spec:
               bucket: "{{inputs.parameters.downloadable_bucket}}" 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
 
+    # Create indexd records
     - name: create-indexd-record
       inputs:
         parameters:
