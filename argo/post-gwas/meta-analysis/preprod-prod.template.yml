@@ -6,7 +6,7 @@ metadata:
     workflow_name: "Meta-Analysis Workflow"
     version: 0.0.2
     description: |
-      * Add steps for visualization
+      * Create Manhattan and QQ plots and save in the downloadble results
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
