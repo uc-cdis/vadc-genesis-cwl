@@ -607,6 +607,13 @@ spec:
           noquote("Combined dataframe formatted, dimensions:")
           print(dim(combined_dataframe))
 
+          combined_dataframe$`P-value` <- as.numeric(combined_dataframe$`P-value`)
+          noquote("Markers with P-value below minimal possible for R double numeric 2e-308:")
+          print(combined_dataframe[`P-value` < 2e-308, ])
+          combined_dataframe$`P-value`[combined_dataframe$`P-value` == 0] <- 2e-308
+          noquote("Assigned minimal possible R double numeric 2e-308 for markers with P-value below:")
+          print(combined_dataframe[`P-value` == 2e-308, ])
+
           chr <- unique(combined_dataframe$ChromosomeNumber)
           cmap <- setNames(rep_len(brewer.pal(8, "Dark2"), length(chr)), chr)
 
