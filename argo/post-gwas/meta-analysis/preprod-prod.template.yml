@@ -600,9 +600,11 @@ spec:
           print(dim(combined_dataframe))
 
           combined_dataframe$ChromosomeNumber <- substring(combined_dataframe$Chromosome, 4)
-          chr_labs=unique(combined_dataframe$ChromosomeNumber)
           combined_dataframe$ChromosomeNumber[combined_dataframe$ChromosomeNumber == "X"] <- 23
           combined_dataframe$ChromosomeNumber <- as.numeric(combined_dataframe$ChromosomeNumber)
+          combined_dataframe <- combined_dataframe[order(combined_dataframe$ChromosomeNumber),]
+          chr_labs <- unique(combined_dataframe$ChromosomeNumber)
+          chr_labs <- replace(chr_labs, chr_labs==23, "X")
           combined_dataframe$Snp <- NA
           noquote("Combined dataframe formatted, dimensions:")
           print(dim(combined_dataframe))
@@ -624,7 +626,9 @@ spec:
                     snp="Snp", p="P-value",
                     chrlabs=chr_labs,
                     col=cmap,
-                    suggestiveline=FALSE
+                    suggestiveline=FALSE,
+                    cex.axis=0.8,
+                    cex.lab=0.8
                     )
           dev.off()
           noquote("Manhattan plot created:")
