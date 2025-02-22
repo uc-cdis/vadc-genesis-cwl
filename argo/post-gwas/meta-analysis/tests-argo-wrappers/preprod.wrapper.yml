@@ -30,11 +30,9 @@ spec:
   arguments:
     parameters:
       - name: template_version
-        value: meta-analysis-template
+        value: meta-template-visualization
       - name: internal_api_env
         value: default
-      - name: out_prefix
-        value: vadc_meta
       - name: team_project    
         value: "/gwas_projects/Uchicago"
       - name: maf_threshold
@@ -51,6 +49,6 @@ spec:
   volumes:
     - name: workdir
       emptyDir:
-        sizeLimit: "40Gi"
+        sizeLimit: "80Gi"
   workflowTemplateRef:
-    name: meta-analysis-template
+    name: meta-template-visualization

@@ -1,11 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: meta-analysis-template
+  name: meta-template-visualization
   annotations:
-    version: 0.0.1
+    workflow_name: "Meta-Analysis Workflow"
+    version: 0.0.2
     description: |
-      Workflow to perform GWAS meta analysis
+      * Create Manhattan and QQ plots and save in the downloadble results
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -20,8 +21,6 @@ spec:
     - name: meta-analysis
       inputs:
         parameters:
-          - name: out_prefix
-            value: vadc_meta
           - name: internal_api_env
             default: default
           - name: team_project
@@ -54,6 +53,7 @@ spec:
                   value: "{{item}}"
             withParam: "{{inputs.parameters.gwas_list}}"
 
+          # Format data for METAL analysis per gwas
           - name: format-data
             template: format-data
             dependencies: [process-inputs]
@@ -81,10 +81,20 @@ spec:
                     key: "{{workflow.name}}/formatted_data"
             withParam: "{{inputs.parameters.chromosome_list}}"
 
+          # Create Manhattan and QQ plots
+          - name: create-plots
+            template: create-plots
+            dependencies: [run-analysis]
+            arguments:
+              artifacts:
+                - name: meta_analysis
+                  s3:
+                    key: "{{workflow.name}}/meta_analysis"
+
           # Archive outputs
           - name: archive-outputs
             template: archive-outputs
-            dependencies: [run-analysis]
+            dependencies: [create-plots]
             arguments:
               parameters:
                 - name: downloadable_bucket
@@ -96,6 +106,12 @@ spec:
                 - name: workflow_inputs_json
                   s3:
                     key: "{{workflow.name}}/workflow_inputs.json"
+                - name: manhattan_plot
+                  s3:
+                    key: "{{workflow.name}}/manhattan.png"
+                - name: qq_plot
+                  s3:
+                    key: "{{workflow.name}}/qq.png"
            
           # Create indexd records
           - name: create-indexd-record
@@ -107,8 +123,6 @@ spec:
                   value: "{{inputs.parameters.team_project}}"
                 - name: internal_api_env
                   value: "{{inputs.parameters.internal_api_env}}"
-                - name: out_prefix
-                  value: "{{inputs.parameters.out_prefix}}"
                 - name: downloadable_bucket
                   value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
               artifacts:
@@ -117,13 +131,14 @@ spec:
           
 
 
-      ## Define each step
+    # Define each step
+    # Get downloadable bucket
     - name: get-downloadable-bucket
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
@@ -171,21 +186,23 @@ spec:
             valueFrom:
               path: "/mnt/vol/downloadable_bucket.txt"
 
+    # Save inputs in json
     - name: pass-inputs
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/alpine-jq:latest
+        image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
-        command: [/bin/sh]
+        command: [/bin/bash]
         source: |
             set -xe
             echo '{
+              "meta_analysis_id": "{{workflow.name}}",
+              "meta_analysis_name": "{{workflow.annotations.workflow_name}}",
               "gwas_list": {{workflow.parameters.gwas_list}},
-              "chromosome_list": {{workflow.parameters.chromosome_list}},
               "maf_threshold": {{workflow.parameters.maf_threshold}}
-            }' | jq -r > /mnt/vol/workflow_inputs.json
+            }' | jq -r . > /mnt/vol/workflow_inputs.json
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -204,7 +221,8 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/workflow_inputs.json"
-      
+
+    # Get data gwas and chromosome data from downloadable bucket, unzip it and save  
     - name: process-inputs
       inputs: 
         parameters:
@@ -214,8 +232,8 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -266,7 +284,7 @@ spec:
               echo "Unzipping file $zip_filepath"
               unzip $zip_filepath
               echo "File $zip_filepath unzipped"
-              ls -la
+              #ls -la
               # Get CSV filename by removing zip extension
               csv_filename="${zip_filename%.*}"
               # Create a new filename for the CSV containing gwas id
@@ -275,21 +293,23 @@ spec:
               echo "Renaming file $csv_filename to $gwas_csv_filename"
               mv $csv_filename $gwas_csv_filename
               echo "File $csv_filename renamed to $gwas_csv_filename"
-              ls -la
+              #ls -la
               # Take a look at the file
-              echo "Head of $gwas_csv_filename:"
-              head $gwas_csv_filename
+              #echo "Head of $gwas_csv_filename:"
+              #head $gwas_csv_filename
               # Save in gwas_chromosome_data
               mv $gwas_csv_filename gwas_chromosome_data
               echo "$gwas_csv_filename moved to gwas_chromosome_data folder"
-              ls -la gwas_chromosome_data/
+              #ls -la gwas_chromosome_data/
             done
 
             echo "Removing $gwas folder from /mnt/vol"
-            ls -la
+            #ls -la
             rm -r $gwas
             echo "$gwas folder was removed from the working directory /mnt/vol"
-            ls -la
+            #ls -la
+            echo "Content of gwas_chromosome_data folder"
+            ls -la gwas_chromosome_data/
           else
             echo "AWS command failed: folder $gwas not found or not accessible"
             exit 1
@@ -307,6 +327,7 @@ spec:
             s3:
               key: "{{workflow.name}}/gwas_chromosome_data"
 
+    # Format data for METAL analysis per gwas
     - name: format-data
       inputs: 
         parameters:
@@ -318,11 +339,12 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
         command: [Rscript]
         source: |
           library(jsonlite)
+          library(data.table)
 
           noquote("R.version:")
           print(R.version)
@@ -357,35 +379,31 @@ spec:
           noquote("GWAS related files:")
           print(list.files(pattern=gwas_file_pattern))
 
+          keep_columns=c("variant.name", "ref", "alt", "freq", "Est", "Est.SE", "chr", "pos")
           for (chr in chromosome_list) {
-            print("Converting CSV to TSV for chromosome:")
+            print("Formatting CSV for chromosome:")
             print(chr)
-            csv_filename <- paste0(gwas, ".chr", chr, ".annotated_summary.csv")
-            tsv_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.tsv")
+            input_filename <- paste0(gwas, ".chr", chr, ".annotated_summary.csv")
+            output_filename <- paste0(formatted_folder, gwas, ".chr", chr, ".annotated_summary.csv")
             print("Reading CSV file:")
-            print(csv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
-            chromosome_data <- read.csv(csv_filename)
-            #chromosome_data <- read.table(file=csv_filename, header=TRUE, sep=",")
-            print("Head of chromosome data:")
-            print(head(chromosome_data))
-            write.table(chromosome_data, tsv_filename, sep="\t", row.name=FALSE)
-            print("Chromosome data saved in TSV:")
-            print(tsv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
-            file.remove(csv_filename)
-            print("CSV file removed:")
-            print(csv_filename)
-            print("List of related files:")
-            print(list.files(pattern=gwas_file_pattern))
+            print(input_filename)
+            print("Keeping columns:")
+            print(keep_columns)
+            chromosome_data <- fread(input_filename, select=keep_columns)
+            print("Chromosome data dimensions:")
+            print(dim(chromosome_data))
+            write.table(chromosome_data, output_filename, sep=",", row.name=FALSE)
+            print("Formatted data saved in CSV:")
+            print(output_filename)
+            file.remove(input_filename)
+            print("Initial CSV file removed:")
+            print(input_filename)
           }
           
           noquote("All chromosome files converted for gwas:")
           print(gwas)
 
-          noquote("Contents of the formatted_data folder")
+          noquote("Content of the formatted_data folder")
           print(list.files(formatted_folder, pattern=gwas_file_pattern))
 
           noquote("All done!")
@@ -408,6 +426,7 @@ spec:
             s3:
               key: "{{workflow.name}}/formatted_data"
 
+    # Run METAL analysis per chromosome
     - name: run-analysis
       inputs: 
         parameters:
@@ -419,8 +438,8 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -461,14 +480,17 @@ spec:
 
           echo "Adding metal configuration to the /mnt/vol/metal_config/config_chr$chr.txt file"
           echo "# === DESCRIBE INPUT FILES ===" >> $CONFIG
+          echo "SCHEME STDERR" >> $CONFIG
           echo "MARKER \"variant.name\"" >> $CONFIG
           echo "ALLELE \"ref\" \"alt\"" >> $CONFIG
           echo "FREQ \"freq\"" >> $CONFIG
           echo "EFFECT \"Est\"" >> $CONFIG
           echo "STDERR \"Est.SE\"" >> $CONFIG
-          echo "SEPARATOR TAB" >> $CONFIG
-          echo "SCHEME STDERR" >> $CONFIG
-          echo "COLUMNCOUNTING LENIENT" >> $CONFIG
+          echo "CHROMOSOME \"chr\"" >> $CONFIG
+          echo "POSITION \"pos\"" >> $CONFIG
+          echo "COLUMNCOUNTING STRICT" >> $CONFIG
+          echo "SEPARATOR COMMA" >> $CONFIG
+          echo "TRACKPOSITIONS ON" >> $CONFIG
           echo "AVERAGEFREQ ON" >> $CONFIG
           echo "MINMAXFREQ ON" >> $CONFIG
           echo "ADDFILTER \"freq\" > $maf" >> $CONFIG
@@ -476,7 +498,7 @@ spec:
           echo "# === PROCESS INPUT FILES ===" >> $CONFIG
           for gwas in ${gwas_list[@]}
           do
-            gwas_chr_filename=$gwas.chr$chr.annotated_summary.tsv 
+            gwas_chr_filename=$gwas.chr$chr.annotated_summary.csv
             echo "PROCESS $gwas_chr_filename" >> $CONFIG
           done
 
@@ -488,11 +510,15 @@ spec:
           echo "Configuration for chromosome $chr"
           less $CONFIG
 
+          echo "Running analysis"
           metal $CONFIG
+          echo "Analysis completed" 
 
-          ls -la
           mkdir /mnt/vol/meta_analysis
-          mv meta_analysis.chr$chr.* /mnt/vol/meta_analysis/
+          mv meta_analysis.chr$chr* /mnt/vol/meta_analysis/
+          echo "Output tbl file moved to /mnt/vol/meta_analysis/"
+          ls -la /mnt/vol/meta_analysis/
+          echo "All done!"
         volumeMounts:
           - name: workdir
             mountPath: /mnt/vol
@@ -523,7 +549,114 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/metal_config/config_chr{{inputs.parameters.chromosome}}.txt"
+
+    # Create Manhattan and QQ plots
+    - name: create-plots
+      inputs:
+        artifacts:
+          - name: meta_analysis
+            mode: 511
+            path: "/mnt/vol/meta_analysis"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+      script:
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(data.table)
+          library(qqman)
+          library(RColorBrewer)
+
+          noquote("R.version:")
+          print(R.version)
+
+          print(Sys.getlocale(category = "LC_ALL"))
           
+          setwd("/mnt/vol/meta_analysis")
+          noquote("Meta analysis results received:")
+          print(list.files())
+
+          metal_results_pattern <- paste0(".tbl$")
+          file_names <- list.files(pattern=metal_results_pattern)
+          noquote("Files for Manhattan and QQ plots:")
+          print(file_names)
+          keep_columns <- c("MarkerName", "P-value", "Chromosome", "Position")
+          noquote("Columns to keep:")
+          print(keep_columns)
+          combined_dataframe <- do.call(rbind, lapply(file_names, fread, select=keep_columns))
+          noquote("Initial combined dataframe created, dimensions:")
+          print(dim(combined_dataframe))
+
+          combined_dataframe$ChromosomeNumber <- substring(combined_dataframe$Chromosome, 4)
+          combined_dataframe$ChromosomeNumber[combined_dataframe$ChromosomeNumber == "X"] <- 23
+          combined_dataframe$ChromosomeNumber <- as.numeric(combined_dataframe$ChromosomeNumber)
+          combined_dataframe <- combined_dataframe[order(combined_dataframe$ChromosomeNumber),]
+          chr_labs <- unique(combined_dataframe$ChromosomeNumber)
+          chr_labs <- replace(chr_labs, chr_labs==23, "X")
+          combined_dataframe$Snp <- NA
+          noquote("Combined dataframe formatted, dimensions:")
+          print(dim(combined_dataframe))
+
+          combined_dataframe$`P-value` <- as.numeric(combined_dataframe$`P-value`)
+          noquote("Markers with P-value below minimal possible for R double numeric 2e-308:")
+          print(combined_dataframe[`P-value` < 2e-308, ])
+          combined_dataframe$`P-value`[combined_dataframe$`P-value` == 0] <- 2e-308
+          noquote("Assigned minimal possible R double numeric 2e-308 for markers with P-value below:")
+          print(combined_dataframe[`P-value` == 2e-308, ])
+
+          chr <- unique(combined_dataframe$ChromosomeNumber)
+          cmap <- setNames(rep_len(brewer.pal(8, "Dark2"), length(chr)), chr)
+
+          setwd("/mnt/vol/")
+          png("manhattan.png", width=10, height=5, units="in", res=300)
+          manhattan(combined_dataframe, 
+                    chr="ChromosomeNumber", bp="Position",
+                    snp="Snp", p="P-value",
+                    chrlabs=chr_labs,
+                    col=cmap,
+                    suggestiveline=FALSE,
+                    cex.axis=0.8,
+                    cex.lab=0.8
+                    )
+          dev.off()
+          noquote("Manhattan plot created:")
+          print(list.files())
+
+          png("qq.png", width=6, height=6, units="in", res=300)
+          qq_plot <- qq(combined_dataframe$`P-value`)
+          dev.off()
+          noquote("QQ plot created:")
+          print(list.files())
+
+          noquote("All done!")
+      outputs:
+        artifacts:
+          - name: manhattan_plot
+            path: "/mnt/vol/manhattan.png"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/manhattan.png"        
+          - name: qq_plot
+            path: "/mnt/vol/qq.png"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/qq.png"    
+   
+    # Archive outputs
     - name: archive-outputs
       inputs:
         parameters:
@@ -534,12 +667,16 @@ spec:
             path: "/mnt/vol/{{workflow.name}}/meta_analysis"
           - name: workflow_inputs_json
             path: "/mnt/vol/{{workflow.name}}/meta_analysis_inputs.json"
+          - name: manhattan_plot
+            path: "/mnt/vol/{{workflow.name}}/manhattan.png"
+          - name: qq_plot
+            path: "/mnt/vol/{{workflow.name}}/qq.png"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: quay.io/cdis/post_gwas:0.0.6
-        imagePullPolicy: Always
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
           echo "Bash version:"
@@ -571,12 +708,12 @@ spec:
               bucket: "{{inputs.parameters.downloadable_bucket}}" 
               key: "{{workflow.name}}/{{workflow.name}}.zip"
 
+    # Create indexd records
     - name: create-indexd-record
       inputs:
         parameters:
           - name: arborist_resource
           - name: internal_api_env
-          - name: out_prefix
           - name: downloadable_bucket
         artifacts:
           - name: meta_analysis_archive
