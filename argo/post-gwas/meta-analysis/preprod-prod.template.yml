@@ -1,12 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: meta-template-visualization
+  name: meta-template-pheweb
   annotations:
     workflow_name: "Meta-Analysis Workflow"
-    version: 0.0.2
+    version: 0.0.3
     description: |
-      * Create Manhattan and QQ plots and save in the downloadble results
+      * Add Pheweb steps
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
