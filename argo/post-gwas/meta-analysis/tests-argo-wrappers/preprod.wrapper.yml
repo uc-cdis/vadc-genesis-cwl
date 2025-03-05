@@ -49,6 +49,6 @@ spec:
   volumes:
     - name: workdir
       emptyDir:
-        sizeLimit: "50Gi"
+        sizeLimit: "30Gi"
   workflowTemplateRef:
     name: meta-template-pheweb

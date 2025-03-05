@@ -526,9 +526,11 @@ spec:
           requests:
             cpu: 1000m
             memory: 2Gi
+            ephemeral-storage: 4Gi
           limits:
             cpu: 2000m
             memory: 4Gi
+            ephemeral-storage: 8Gi
       outputs:
         artifacts:
           - name: meta_analysis
@@ -566,10 +568,10 @@ spec:
         resources:
           requests:
             cpu: 1000m
-            memory: 2Gi
+            memory: 4Gi
           limits:
             cpu: 2000m
-            memory: 4Gi
+            memory: 8Gi
       script:
         image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
