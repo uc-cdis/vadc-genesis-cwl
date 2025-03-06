@@ -91,6 +91,28 @@ spec:
                   s3:
                     key: "{{workflow.name}}/meta_analysis"
 
+          # Combine data for the pheweb
+          - name: combine-pheweb
+            template: combine-pheweb
+            dependencies: [run-analysis]
+            arguments:
+              artifacts:
+                - name: meta_analysis
+                  s3:
+                    key: "{{workflow.name}}/meta_analysis"
+
+          # Create pheweb json file
+          - name: create-pheweb-json
+            template: create-pheweb-json
+            dependencies: [combine-pheweb]
+            arguments:
+              parameters:
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: pheweb_tsv
+                  from: "{{tasks.combine-pheweb.outputs.artifacts.pheweb_tsv}}"
+
           # Archive outputs
           - name: archive-outputs
             template: archive-outputs
@@ -116,7 +138,7 @@ spec:
           # Create indexd records
           - name: create-indexd-record
             template: create-indexd-record
-            dependencies: [archive-outputs]
+            dependencies: [archive-outputs, create-pheweb-json]
             arguments:
               parameters:
                 - name: arborist_resource
@@ -128,8 +150,10 @@ spec:
               artifacts:
                 - name: meta_analysis_archive
                   from: "{{tasks.archive-outputs.outputs.artifacts.meta_analysis_archive}}"           
-          
-
+                - name: pheweb_manhattan_json
+                  from: "{{tasks.create-pheweb-json.outputs.artifacts.pheweb_manhattan_json}}" 
+                - name: pheweb_qq_json
+                  from: "{{tasks.create-pheweb-json.outputs.artifacts.pheweb_qq_json}}" 
 
     # Define each step
     # Get downloadable bucket
@@ -562,16 +586,6 @@ spec:
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
-        volumeMounts:
-          - name: workdir
-            mountPath: /mnt/vol
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 4Gi
-          limits:
-            cpu: 2000m
-            memory: 8Gi
       script:
         image: quay.io/cdis/post_gwas:0.0.9
         imagePullPolicy: IfNotPresent
@@ -590,8 +604,10 @@ spec:
           noquote("Meta analysis results received:")
           print(list.files())
 
-          metal_results_pattern <- paste0(".tbl$")
-          file_names <- list.files(pattern=metal_results_pattern)
+          # Order files
+          meta_results_filter <- sapply(c(1:22, "X"), function(x){ paste0("meta_analysis.chr", x, ".1.tbl")})
+          file_names <- Filter(function(x) file.exists(x), meta_results_filter)
+
           noquote("Files for Manhattan and QQ plots:")
           print(file_names)
           keep_columns <- c("MarkerName", "P-value", "Chromosome", "Position")
@@ -602,11 +618,9 @@ spec:
           print(dim(combined_dataframe))
 
           combined_dataframe$ChromosomeNumber <- substring(combined_dataframe$Chromosome, 4)
+          chr_labs <- unique(combined_dataframe$ChromosomeNumber)
           combined_dataframe$ChromosomeNumber[combined_dataframe$ChromosomeNumber == "X"] <- 23
           combined_dataframe$ChromosomeNumber <- as.numeric(combined_dataframe$ChromosomeNumber)
-          combined_dataframe <- combined_dataframe[order(combined_dataframe$ChromosomeNumber),]
-          chr_labs <- unique(combined_dataframe$ChromosomeNumber)
-          chr_labs <- replace(chr_labs, chr_labs==23, "X")
           combined_dataframe$Snp <- NA
           noquote("Combined dataframe formatted, dimensions:")
           print(dim(combined_dataframe))
@@ -643,6 +657,16 @@ spec:
           print(list.files())
 
           noquote("All done!")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 4Gi
+          limits:
+            cpu: 2000m
+            memory: 8Gi
       outputs:
         artifacts:
           - name: manhattan_plot
@@ -657,7 +681,136 @@ spec:
               none: {}
             s3:
               key: "{{workflow.name}}/qq.png"    
-   
+
+    # Combine data for the pheweb
+    - name: combine-pheweb
+      inputs:
+        artifacts:
+          - name: meta_analysis
+            mode: 511
+            path: "/mnt/vol/meta_analysis"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(data.table)
+
+          noquote("R.version:")
+          print(R.version)
+
+          print(Sys.getlocale(category = "LC_ALL"))
+
+          setwd("/mnt/vol/meta_analysis")
+          noquote("Meta analysis results received:")
+          print(list.files())
+
+          # Order files
+          meta_results_filter <- sapply(c(1:22, "X"), function(x){ paste0("meta_analysis.chr", x, ".1.tbl")})
+          file_names <- Filter(function(x) file.exists(x), meta_results_filter)
+
+          # Combine
+          keep_columns <- c("Chromosome", "Position", "Allele1", "Allele2", 
+            "P-value", "Effect", "StdErr", "Freq1")
+          print("Keeping columns:")
+          print(keep_columns)
+          combined_dataframe <- do.call(rbind, lapply(file_names, fread, select=keep_columns))
+          noquote("Combined dataframe:")
+          print(head(combined_dataframe))
+          colnames(combined_dataframe) <- c("chrom", "pos", "ref", "alt",
+            "pval", "beta", "sebeta", "af")
+          combined_dataframe$chrom <- substring(combined_dataframe$chrom, 4)
+          #combined_dataframe$chrom <- as.numeric(combined_dataframe$chrom)
+
+          noquote("Formatted combined dataframe:")
+          print(head(combined_dataframe))
+
+          # write pheweb TSV
+          write.table(combined_dataframe,
+            file=gzfile("/mnt/vol/combined_annotated_summary.pheweb.tsv.gz"),
+            quote=FALSE,
+            sep="\t",
+            row.names=FALSE,
+            na="")
+          
+          noquote("Pheweb data saved in combined_annotated_summary.pheweb.tsv.gz")
+          
+          noquote("All done!")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 4Gi
+          limits:
+            cpu: 500m
+            memory: 10Gi
+      outputs:
+        artifacts:
+          - name: pheweb_tsv 
+            path: "/mnt/vol/combined_annotated_summary.pheweb.tsv.gz"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/combined_annotated_summary.pheweb.tsv.gz"
+  
+    - name: create-pheweb-json
+      inputs:
+        parameters:
+          - name: downloadable_bucket
+        artifacts:
+          - name: pheweb_tsv
+            path: "/mnt/vol/pheweb.tsv.gz"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        source: |
+          /env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_tsv.path}} \
+          --out_json /mnt/vol/pheweb.manhattan.json \
+          --out_plot_type manhattan
+
+          /env/bin/vadc-gwas-tools GetPheWebPlotJson \
+          --in_tsv {{inputs.artifacts.pheweb_tsv.path}} \
+          --out_json /mnt/vol/pheweb.qq.json \
+          --out_plot_type qq
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: 500m
+            memory: 4Gi
+      outputs:
+        artifacts:
+          - name: pheweb_manhattan_json
+            path: "/mnt/vol/pheweb.manhattan.json"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/pheweb.manhattan.json"
+          - name: pheweb_qq_json
+            path: "/mnt/vol/pheweb.qq.json"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}"
+              key: "{{workflow.name}}/pheweb.qq.json"
+
     # Archive outputs
     - name: archive-outputs
       inputs:
@@ -720,6 +873,10 @@ spec:
         artifacts:
           - name: meta_analysis_archive
             path: "/mnt/vol/{{workflow.name}}.zip"
+          - name: pheweb_manhattan_json
+            path: "/mnt/vol/pheweb.manhattan.json"
+          - name: pheweb_qq_json
+            path: "/mnt/vol/pheweb.qq.json"
       retryStrategy:
         limit: "3"
         retryPolicy: "Always"
@@ -731,7 +888,17 @@ spec:
                 --gwas_archive {{inputs.artifacts.meta_analysis_archive.path}} \
                 --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}.zip \
                 --arborist_resource {{inputs.parameters.arborist_resource}} \
-                -o /mnt/vol/did_archive.json"]
+                -o /mnt/vol/did_archive.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.pheweb_manhattan_json.path}} \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/pheweb.manhattan.json \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_pheweb_manhattan_json.json && \
+                /env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive {{inputs.artifacts.pheweb_qq_json.path}} \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/pheweb.qq.json \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_pheweb_qq_json.json"]
         env:
           - name: GEN3_ENVIRONMENT
             value: "{{inputs.parameters.internal_api_env}}"
@@ -762,3 +929,11 @@ spec:
             valueFrom:
               path: /mnt/vol/did_archive.json
             globalName: gwas_archive_index
+          - name: pheweb_manhattan_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_manhattan_json.json
+            globalName: pheweb_manhattan_json_index
+          - name: pheweb_qq_json_index
+            valueFrom:
+              path: /mnt/vol/did_pheweb_qq_json.json
+            globalName: pheweb_qq_json_index
