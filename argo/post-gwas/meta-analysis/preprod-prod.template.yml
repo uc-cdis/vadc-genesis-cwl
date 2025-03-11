@@ -1,12 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: meta-template-pheweb
+  name: meta-template-annotations
   annotations:
     workflow_name: "Meta-Analysis Workflow"
-    version: 0.0.3
+    version: 0.0.4
     description: |
-      * Add Pheweb steps
+      * Add annotations
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
