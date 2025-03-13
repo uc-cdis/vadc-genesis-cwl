@@ -297,7 +297,7 @@ spec:
           - name: variables_json
             path: /mnt/vol/variables.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.7
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -349,7 +349,7 @@ spec:
           - name: variables_with_hare_json
             path: /mnt/vol/variables_with_hare.json
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.7
         imagePullPolicy: IfNotPresent
         command: [/bin/bash]
         source: |
