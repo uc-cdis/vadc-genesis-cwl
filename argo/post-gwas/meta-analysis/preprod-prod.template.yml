@@ -769,7 +769,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       script:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.7
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash"]
         source: |
@@ -881,7 +881,7 @@ spec:
         limit: "3"
         retryPolicy: "Always"
       container:
-        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.7
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
