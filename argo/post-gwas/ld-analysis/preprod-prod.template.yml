@@ -1,0 +1,591 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ld-analysis-workflow
+  annotations:
+    description: "Workflow to perform linkage disequilibrium (LD) analysis based on GDS files and user inputs."
+spec:
+  # must complete in 8h (28,800 seconds)
+  activeDeadlineSeconds: 28800
+  # keep workflow for 10 seconds
+  ttlStrategy:
+    secondsAfterCompletion: 10
+  podMetadata:
+    annotations:
+      karpenter.sh/do-not-evict: "true"
+  entrypoint: ld-analysis
+  templates:
+    - name: ld-analysis
+      inputs:
+        parameters:
+          - name: workflow-name
+          - name: chr
+          - name: start
+          - name: stop
+          - name: gds_files
+          - name: internal_api_env     
+          - name: out_prefix 
+          - name: team_project  
+      
+      dag:
+        tasks:
+          - name: get-downloadable-bucket
+            template: get-downloadable-bucket
+          
+          - name: find-phenotype-rdata
+            template: find-phenotype-rdata
+            dependencies: [get-downloadable-bucket]
+            arguments:
+              parameters:
+                - name: workflow-name
+                  value: "{{inputs.parameters.workflow-name}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+                - name: internal_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.internal_bucket}}"
+
+          - name: filter-gds
+            template: filter-gds
+            dependencies: [find-phenotype-rdata]
+            arguments:
+              parameters:
+                - name: gds_files
+                  value: "{{inputs.parameters.gds_files}}"
+                - name: chr
+                  value: "{{inputs.parameters.chr}}"
+                - name: start
+                  value: "{{inputs.parameters.start}}"
+                - name: stop
+                  value: "{{inputs.parameters.stop}}"
+              artifacts:
+                - name: phenotypes-rdata
+                  from: "{{tasks.find-phenotype-rdata.outputs.artifacts.phenotypes-rdata}}"
+
+          - name: gds-to-vcf
+            template: gds-to-vcf
+            dependencies: [filter-gds]
+            arguments:
+              artifacts:
+                - name: filtered-gds
+                  from: "{{tasks.filter-gds.outputs.artifacts.filtered-gds}}" 
+
+          - name: vcf-to-plink-to-ld
+            template: vcf-to-plink-to-ld
+            dependencies: [gds-to-vcf]
+            arguments:
+              artifacts:
+                - name: vcf-file
+                  from: "{{tasks.gds-to-vcf.outputs.artifacts.vcf-file}}"
+
+          - name: plot-heatmap
+            template: plot-heatmap
+            dependencies: [vcf-to-plink-to-ld]
+            arguments:
+              artifacts:
+                - name: ld-results
+                  from: "{{tasks.vcf-to-plink-to-ld.outputs.artifacts.ld-results}}"
+
+
+          - name: archive-ld-outputs  
+            template: archive-ld-outputs
+            dependencies: [vcf-to-plink-to-ld, plot-heatmap, get-downloadable-bucket]
+            arguments:
+              parameters:
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: ld-results
+                  from: "{{tasks.vcf-to-plink-to-ld.outputs.artifacts.ld-results}}"
+                - name: ld-heatmap
+                  from: "{{tasks.plot-heatmap.outputs.artifacts.ld-heatmap}}"
+    
+
+          - name: create-ld-indexd-record  
+            template: create-ld-indexd-record
+            dependencies: [archive-ld-outputs]
+            arguments:
+              parameters:
+                - name: arborist_resource
+                  value: "{{inputs.parameters.team_project}}"
+                - name: internal_api_env
+                  value: "{{inputs.parameters.internal_api_env}}"
+                - name: out_prefix
+                  value: "{{inputs.parameters.out_prefix}}"
+                - name: downloadable_bucket
+                  value: "{{tasks.get-downloadable-bucket.outputs.parameters.downloadable_bucket}}"
+              artifacts:
+                - name: ld_archive
+                  from: "{{tasks.archive-ld-outputs.outputs.artifacts.ld_archive}}"
+
+## Define each step
+    - name: get-downloadable-bucket
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/alpine-jq:latest
+        imagePullPolicy: IfNotPresent
+        command: [/bin/sh]
+        source: |
+          if [ -z $DOWNLOADABLE_BUCKET ]; then
+            echo "Downloadable bucket is not found or set to empty string"
+            exit 1
+          else
+            echo "Downloadable bucket found: $DOWNLOADABLE_BUCKET"
+            echo "$DOWNLOADABLE_BUCKET" > /mnt/vol/downloadable_bucket.txt
+          fi
+
+          if [ -z $INTERNAL_BUCKET ]; then
+            echo "Internal bucket is not found or set to empty string"
+            exit 1
+          else
+            echo "Internal bucket found: $INTERNAL_BUCKET"
+            echo "$INTERNAL_BUCKET" > /mnt/vol/internal_bucket.txt
+          fi
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+        env:
+        - name: DOWNLOADABLE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: argo-template-values-secret
+              key: DOWNLOADABLE_BUCKET
+        - name: INTERNAL_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: argo-template-values-secret
+              key: INTERNAL_BUCKET
+      outputs:
+        parameters:
+          - name: downloadable_bucket
+            valueFrom:
+              path: "/mnt/vol/downloadable_bucket.txt"
+          - name: internal_bucket
+            valueFrom:
+              path: "/mnt/vol/internal_bucket.txt"
+      
+
+
+    - name: find-phenotype-rdata
+      inputs:
+        parameters:
+          - name: workflow-name
+            description: The name of the workflow to locate phenotypes.Rdata
+          - name: downloadable_bucket
+          - name: internal_bucket
+      script:
+        image: quay.io/cdis/post_gwas:0.1.0
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          echo "Bash version:"
+          echo $(bash --version)
+
+          echo "Locale:"
+          echo $(locale)
+
+          set -e
+          cd /mnt/vol
+          echo "Switched to the working directory /mnt/vol"
+
+          bucket="{{inputs.parameters.internal_bucket}}"
+          workflow_name="{{inputs.parameters.workflow-name}}"
+
+          echo "Bucket parameter received: $bucket"
+          echo "Workflow parameter received: $workflow_name"
+
+          # Locate the correct pod subdirectory using pattern match
+          echo "Searching for the correct pod directory..."
+          pod_name=$(aws s3 ls s3://$bucket/$workflow_name/ | awk '{print $NF}' | grep "^${workflow_name}-generate-pheno-" | sed 's|/||')
+
+          if [ -z "$pod_name" ]; then
+            echo "Error: No valid pod directory found in s3://$bucket/$workflow_name/"
+            exit 1
+          fi
+
+          echo "Found pod directory: $pod_name"
+
+          # Construct the correct S3 path for phenotypes.Rdata
+          phenotypes_path="s3://$bucket/$workflow_name/$pod_name/phenotypes.Rdata"
+          echo "Downloading phenotypes.Rdata from $phenotypes_path"
+
+          aws s3 cp "$phenotypes_path" "/mnt/vol/phenotypes.Rdata"
+
+          if [ -f "/mnt/vol/phenotypes.Rdata" ]; then
+            echo "Successfully retrieved phenotypes.Rdata"
+          else
+            echo "Error: phenotypes.Rdata not found at $phenotypes_path"
+            exit 1
+          fi
+
+
+        volumeMounts:
+            - name: workdir
+              mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: phenotypes-rdata
+            path: /mnt/vol/phenotypes.Rdata
+
+    - name: filter-gds
+      inputs:
+        parameters:
+          - name: gds_files
+          - name: chr
+          - name: start
+          - name: stop
+        artifacts:
+          - name: phenotypes-rdata
+            path: /mnt/vol/phenotypes.Rdata
+      container:
+        image: quay.io/cdis/post_gwas:0.1.0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "========== FILTER-GDS START =========="
+            echo "Chromosome: {{inputs.parameters.chr}}"
+            echo "Start: {{inputs.parameters.start}}"
+            echo "Stop: {{inputs.parameters.stop}}"
+
+            # Extract GDS file matching the selected chromosome
+            echo "Extracting GDS file for chromosome $CHR..."
+            CHR="{{inputs.parameters.chr}}"
+            GDS_FILES='{{inputs.parameters.gds_files}}'
+
+            # Convert the list to a JSON array and find the correct file
+            GDS_FILE=$(echo $GDS_FILES | jq -r --arg chr "chr$CHR" '
+              map(select(test("^.*/" + $chr + ".merged.vcf.gz.gds$")))[0]')
+
+            if [ -z "$GDS_FILE" ]; then
+              echo "Error: No matching GDS file found for chromosome $CHR" >&2
+              exit 1
+            fi
+
+            echo "Using GDS file: $GDS_FILE"
+
+
+            if [ ! -f "/mnt/vol/phenotypes.Rdata" ]; then
+              echo "Error: Phenotypes file not found at /mnt/vol/phenotypes.Rdata"
+              ls -lah /mnt/vol
+              exit 1
+            fi
+
+            echo "Phenotypes file found, proceeding to R script..."
+
+            echo "========== RUNNING R SCRIPT =========="
+
+            # Filter GDS file
+            Rscript - <<EOF $GDS_FILE
+            args <- commandArgs(trailingOnly = TRUE)
+            gds_file <- args[1]
+
+            library(SeqArray)
+            library(Biobase)
+            library(digest)
+
+            print("Loading phenotypes.Rdata...")
+            load("/mnt/vol/phenotypes.Rdata")
+            sample_ids <- pData(annot)[["sample.id"]]
+            #writeLines(sample_ids, "sample_ids.txt")
+
+            output_file <- "/mnt/vol/filtered-gds.gds"
+            chr <- "{{inputs.parameters.chr}}"
+            start <- as.numeric("{{inputs.parameters.start}}")
+            stop <- as.numeric("{{inputs.parameters.stop}}")
+            
+            print(paste("Opening GDS file:", gds_file))
+            gds <- seqOpen(gds_file)
+
+            # filter on chr
+            print(paste("Filtering for chromosome:", chr))
+            seqSetFilterChrom(gds, include = chr)
+
+            # filter on start and stop
+            print(paste("Filtering variants in range:", start, " - ", stop))
+            seqSetFilter(gds, variant.sel = (seqGetData(gds, "position") >= start & seqGetData(gds, "position") <= stop))
+
+            # filter on sample ids
+            print("Applying sample id filter...") 
+            seqSetFilter(gds, sample.id = sample_ids)
+            
+            print(paste("Saving filtered GDS file:", output_file))
+            seqExport(gds, output_file)
+            seqClose(gds)
+            #cat(output_file, file="/mnt/vol/filtered-gds.gds")
+            print("========== R SCRIPT COMPLETE ==========")
+            EOF
+
+            cd /mnt/vol
+            ls
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+      outputs:
+        artifacts:
+          - name: filtered-gds
+            path: /mnt/vol/filtered-gds.gds
+        # parameters:
+        #   - name: filtered-gds
+        #     valueFrom:
+        #       path: /mnt/vol/filtered-gds.gds
+
+    - name: gds-to-vcf
+      dependencies:
+        - filter-gds
+      inputs:
+        artifacts:
+          - name: filtered-gds
+            path: /mnt/vol/filtered-gds.gds
+      container:
+        image: quay.io/cdis/post_gwas:0.1.0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            cd /mnt/vol
+            ls
+            Rscript - <<EOF
+            library(SeqArray)
+            f <- seqOpen("filtered-gds.gds")
+            seqGDS2VCF(f, "output.vcf.gz")
+            seqClose(f)
+            EOF
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: vcf-file
+            path: /mnt/vol/output.vcf.gz
+
+    - name: vcf-to-plink-to-ld
+      inputs:
+        artifacts:
+          - name: vcf-file
+            path: /mnt/vol/output.vcf.gz
+      container:
+        image: quay.io/cdis/post_gwas:0.1.0
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            cd /mnt/vol
+            ls
+            # VCF to PLINK format
+            /usr/local/bin/plink --vcf output.vcf.gz --make-bed --out output_plink
+            mv output_plink.bim output_plink.map
+            /usr/local/bin/plink --vcf output.vcf.gz --make-bed --out output_plink
+            echo "VCF file was converted to PLINK format."
+
+            # Calculate R2 value
+            /usr/local/bin/plink --bfile output_plink --r2  --out output_r2
+            echo "R² calculated."
+
+            # Calculate D prime value
+            /usr/local/bin/plink --bfile output_plink --r dprime --out output_dprime
+            echo "D prime calculated."
+
+            # Combine R2 and D prime results
+            paste output_r2.ld output_dprime.ld | \
+            awk 'BEGIN{OFS="\t"} NR==1{print "CHR_A","BP_A","SNP_A","CHR_B","BP_B","SNP_B","R2","R","D_prime"} \
+            NR>1{print $1,$2,$3,$4,$5,$6,$7,$(NF-1),$NF}' > plink.ld
+            
+            echo "R² and D prime results were combined"
+
+            
+            echo "LD analysis was finished."
+
+            if [ ! -f "/mnt/vol/plink.ld" ]; then
+              echo "Error: LD results file plink.ld was not created!" >&2
+              exit 1
+            fi
+
+            cd /mnt/vol
+            ls
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: ld-results
+            path: /mnt/vol/plink.ld
+
+    - name: plot-heatmap
+      inputs:
+        artifacts:
+          - name: ld-results
+            path: /mnt/vol/plink.ld
+      container:
+        image: quay.io/cdis/post_gwas:0.1.0  
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "========== PLOT HEATMAP START =========="
+            cd /mnt/vol
+            ls
+            
+            python3 -m pip install --upgrade pip
+            python3 -m pip install --no-cache-dir pandas seaborn matplotlib
+
+            # Verify installation
+            python3 -c "import pandas; import seaborn; import matplotlib"
+
+            # Run the Python script
+            python3 - <<EOF
+            import pandas as pd
+            import seaborn as sns
+            import matplotlib.pyplot as plt
+
+            # Load the LD data
+            ld = pd.read_csv("plink.ld", sep="\t")
+
+            # Pivot the data to create a matrix format suitable for heatmap
+            ld_matrix = ld.pivot(index="BP_A", columns="BP_B", values="R2")
+
+            # Set figure size
+            plt.figure(figsize=(10, 8))
+
+            # Create the heatmap with a smaller color bar
+            ax = sns.heatmap(ld_matrix, cmap="coolwarm", annot=False, square=True, cbar=True, 
+                             cbar_kws={"shrink": 0.5})  # shrink makes the legend smaller
+
+            # Move the color bar to the middle right
+            cbar = ax.collections[0].colorbar
+            cbar.ax.set_position([0.85, 0.3, 0.03, 0.4])  # (left, bottom, width, height)
+
+            # Increase font size for title and axis labels
+            plt.xlabel("Base Pair of Variant B", fontsize=16, fontweight='bold')
+            plt.ylabel("Base Pair of Variant A", fontsize=16, fontweight='bold')
+            plt.title("LD Heatmap (R² values)", fontsize=20, fontweight='bold')
+
+            # Save the plot as PNG (high resolution)
+            plt.savefig("LD_heatmap.png", dpi=300, bbox_inches="tight")
+
+            print("========== HEATMAP GENERATED ==========")
+            EOF
+
+            # Verify that the image was created
+            if [ ! -f "LD_heatmap.png" ]; then
+              echo "Error: LD heatmap file was not created!" >&2
+              exit 1
+            fi
+
+            echo "========== PLOT HEATMAP COMPLETE =========="
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: ld-heatmap
+            path: /mnt/vol/LD_heatmap.png
+
+    - name: archive-ld-outputs
+      inputs:
+        parameters:
+          - name: downloadable_bucket
+        artifacts:
+          - name: ld-results
+            path: /mnt/vol/plink.ld
+          - name: ld-heatmap
+            path: /mnt/vol/LD_heatmap.png
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.1.0
+        imagePullPolicy: Always
+        command: [/bin/bash]
+        source: |
+          echo "========== ARCHIVE-LD-OUTPUTS START =========="
+          cd /mnt/vol/
+          ls
+
+          if [ ! -f "plink.ld" ]; then
+            echo "Error: LD results file plink.ld not found!" >&2
+            ls -lah /mnt/vol
+            exit 1
+          fi
+
+          if [ ! -f "LD_heatmap.png" ]; then
+            echo "Error: LD heatmap file not found!" >&2
+            ls -lah /mnt/vol
+            exit 1
+          fi
+
+          echo "LD results and heatmap file found. Creating ZIP archive..."
+          zip -r {{workflow.name}}_ld.zip plink.ld LD_heatmap.png
+
+          # Verify if the zip file was created successfully
+          if [ -f "/mnt/vol/{{workflow.name}}_ld.zip" ]; then
+            echo "LD archive successfully created: /mnt/vol/{{workflow.name}}_ld.zip"
+          else
+            echo "Error: LD archive file not found!" >&2
+            exit 1
+          fi
+
+          echo "========== ARCHIVE-LD-OUTPUTS COMPLETE =========="
+
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        artifacts:
+          - name: ld_archive
+            path: "/mnt/vol/{{workflow.name}}_ld.zip"
+            archive:
+              none: {}
+            s3:
+              endpoint: s3.amazonaws.com
+              bucket: "{{inputs.parameters.downloadable_bucket}}" 
+              key: "{{workflow.name}}/{{workflow.name}}_ld.zip"
+
+
+
+    - name: create-ld-indexd-record
+      inputs:
+        parameters:
+          - name: arborist_resource
+          - name: internal_api_env
+          - name: out_prefix
+          - name: downloadable_bucket
+        artifacts:
+          - name: ld_archive
+            path: "/mnt/vol/{{workflow.name}}_ld.zip"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      container:
+        image: 707767160287.dkr.ecr.us-east-1.amazonaws.com/gen3/vadc-gwas-tools:1.2.6
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "-c"]
+        args: ["/env/bin/vadc-gwas-tools CreateIndexdRecord \
+                --gwas_archive /mnt/vol/{{workflow.name}}_ld.zip  \
+                --s3_uri s3://{{inputs.parameters.downloadable_bucket}}/{{workflow.name}}/{{workflow.name}}_ld.zip \
+                --arborist_resource {{inputs.parameters.arborist_resource}} \
+                -o /mnt/vol/did_ld_archive.json"]
+        env:
+          - name: GEN3_ENVIRONMENT
+            value: "{{inputs.parameters.internal_api_env}}"
+          - name: INDEXDUSER
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: user
+          - name: INDEXDPASS
+            valueFrom:
+              secretKeyRef:
+                name: indexd-creds
+                key: password
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: gwas_archive_index
+            valueFrom:
+              path: /mnt/vol/did_ld_archive.json
+            globalName: gwas_archive_index
+
+
