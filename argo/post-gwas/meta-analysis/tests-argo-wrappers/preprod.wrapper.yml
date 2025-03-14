@@ -47,8 +47,11 @@ spec:
         value: |-
           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, "X"]
   volumes:
+    - name: gateway
+      persistentVolumeClaim:
+        claimName: vhdcprod-input-data-bucket-claim
     - name: workdir
       emptyDir:
         sizeLimit: "30Gi"
   workflowTemplateRef:
-    name: meta-template-pheweb
+    name: meta-template-annotations
