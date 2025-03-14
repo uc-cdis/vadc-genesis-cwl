@@ -1,12 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: meta-template-pheweb
+  name: meta-template-annotations
   annotations:
     workflow_name: "Meta-Analysis Workflow"
-    version: 0.0.3
+    version: 0.0.4
     description: |
-      * Add Pheweb steps
+      * Add annotations
 spec:
   # must complete in 8h (28,800 seconds)
   activeDeadlineSeconds: 28800
@@ -81,25 +81,39 @@ spec:
                     key: "{{workflow.name}}/formatted_data"
             withParam: "{{inputs.parameters.chromosome_list}}"
 
-          # Create Manhattan and QQ plots
-          - name: create-plots
-            template: create-plots
+          # Annotate meta-analysis results
+          - name: annotate-statistics
+            template: annotate-statistics
             dependencies: [run-analysis]
             arguments:
+              parameters:
+                - name: chromosome
+                  value: "{{item}}"
               artifacts:
                 - name: meta_analysis
                   s3:
                     key: "{{workflow.name}}/meta_analysis"
+            withParam: "{{inputs.parameters.chromosome_list}}"
+
+          # Create Manhattan and QQ plots
+          - name: create-plots
+            template: create-plots
+            dependencies: [annotate-statistics]
+            arguments:
+              artifacts:
+                - name: meta_analysis
+                  s3:
+                    key: "{{workflow.name}}/meta_analysis_annotated"
 
           # Combine data for the pheweb
           - name: combine-pheweb
             template: combine-pheweb
-            dependencies: [run-analysis]
+            dependencies: [annotate-statistics]
             arguments:
               artifacts:
                 - name: meta_analysis
                   s3:
-                    key: "{{workflow.name}}/meta_analysis"
+                    key: "{{workflow.name}}/meta_analysis_annotated"
 
           # Create pheweb json file
           - name: create-pheweb-json
@@ -124,7 +138,7 @@ spec:
               artifacts:
                 - name: meta_analysis
                   s3:
-                    key: "{{workflow.name}}/meta_analysis"
+                    key: "{{workflow.name}}/meta_analysis_annotated"
                 - name: workflow_inputs_json
                   s3:
                     key: "{{workflow.name}}/workflow_inputs.json"
@@ -576,6 +590,113 @@ spec:
             s3:
               key: "{{workflow.name}}/metal_config/config_chr{{inputs.parameters.chromosome}}.txt"
 
+    # Annotate meta-analysis results
+    - name: annotate-statistics
+      inputs:
+        parameters:
+          - name: chromosome
+        artifacts:
+          - name: meta_analysis
+            path: "/mnt/vol/meta_analysis"
+      retryStrategy:
+        limit: "3"
+        retryPolicy: "Always"
+      script:
+        image: quay.io/cdis/post_gwas:0.0.9
+        imagePullPolicy: IfNotPresent
+        command: [Rscript]
+        source: |
+          library(data.table)
+
+          noquote("R.version:")
+          print(R.version)
+
+          print(Sys.getlocale(category = "LC_ALL"))
+          
+          chromosome <- "{{inputs.parameters.chromosome}}"
+          noquote("Chromosome received:")
+          print(chromosome)
+          setwd("/mnt/vol/meta_analysis")
+          noquote("Meta analysis results received:")
+          print(list.files())
+
+          setwd("/mnt/vol")
+          dir.create("meta_analysis_annotated")
+          noquote("Created meta_analysis_annotated folder")
+          input_folder <- "/mnt/vol/meta_analysis/"
+          output_folder <- "/mnt/vol/meta_analysis_annotated/"
+
+          meta_filename <- paste0("meta_analysis.chr", chromosome, ".1.tbl")
+          input_filename <- paste0(input_folder, meta_filename)
+          output_filename <- paste0(output_folder, meta_filename)
+
+          # Load chromosome meta-analysis results
+          noquote("Reading choromosome meta-analysis results:")
+          print(input_filename)
+          chromosome_meta <- fread(input_filename)
+          print(dim(chromosome_meta))
+          #print(head(chromosome_meta))
+
+          # Load RSID meta
+          noquote("Reading RSIDs data:")
+          rsid_meta <- read.delim("/commons-data/kmhernan/marker_metadata/vadc_mvp_marker_annotation.chr{{inputs.parameters.chromosome}}.vep.tsv.gz",
+                                header=TRUE,
+                                stringsAsFactors=FALSE,
+                                sep="\t")
+          print(dim(rsid_meta))
+          #print(head(rsid_meta))
+
+          noquote("Adding annotations:")
+          annotated_chromosome_meta <- merge(chromosome_meta, rsid_meta, by.x="MarkerName", by.y="variant.name", all.x=TRUE)
+          print(dim(annotated_chromosome_meta))
+          #print(head(annotated_chromosome_meta))
+
+          # write pheweb TSV
+          noquote("Saving annotated choromosome data:")
+          write.table(annotated_chromosome_meta,
+            file=output_filename,
+            quote=TRUE,
+            sep="\t",
+            row.names=FALSE,
+            na="")
+          print(output_filename)
+
+          noquote("Adding information file to the meta_analysis_annotated:")
+          info_filename <- paste0("meta_analysis.chr", chromosome, ".1.tbl.info")
+          input_filename <- paste0(input_folder, info_filename)
+          output_filename <- paste0(output_folder, info_filename)
+          file.copy(input_filename, output_filename)
+
+          noquote("Adding annotations information to the information file:")
+          cat("# Annotations added by VADC pipeline:", sep = "\n", file=output_filename, append = TRUE)
+          cat("# rsids\t\t\t\t\t- standardized reference SNP IDs", sep = "\n", file=output_filename, append = TRUE)
+          cat("# nearest_genes\t- gene symbols 5000 base pairs upstream and downstream of the Marker", sep = "\n", file=output_filename, append = TRUE)
+          print(output_filename)
+
+          noquote("All done!")
+        volumeMounts:
+          - name: workdir
+            mountPath: /mnt/vol
+          - name: gateway
+            mountPath: /commons-data
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+            ephemeral-storage: 4Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+            ephemeral-storage: 8Gi
+      outputs:
+        artifacts:
+          - name: meta_analysis_annotated
+            path: "/mnt/vol/meta_analysis_annotated"
+            archive:
+              none: {}
+            s3:
+              key: "{{workflow.name}}/meta_analysis_annotated"
+
     # Create Manhattan and QQ plots
     - name: create-plots
       inputs:
@@ -714,14 +835,14 @@ spec:
 
           # Combine
           keep_columns <- c("Chromosome", "Position", "Allele1", "Allele2", 
-            "P-value", "Effect", "StdErr", "Freq1")
+            "P-value", "Effect", "StdErr", "Freq1", "rsids", "nearest_genes")
           print("Keeping columns:")
           print(keep_columns)
           combined_dataframe <- do.call(rbind, lapply(file_names, fread, select=keep_columns))
           noquote("Combined dataframe:")
           print(head(combined_dataframe))
           colnames(combined_dataframe) <- c("chrom", "pos", "ref", "alt",
-            "pval", "beta", "sebeta", "af")
+            "pval", "beta", "sebeta", "af", "rsids", "nearest_genes")
           combined_dataframe$chrom <- substring(combined_dataframe$chrom, 4)
           #combined_dataframe$chrom <- as.numeric(combined_dataframe$chrom)
 
@@ -730,13 +851,13 @@ spec:
 
           # write pheweb TSV
           write.table(combined_dataframe,
-            file=gzfile("/mnt/vol/combined_annotated_summary.pheweb.tsv.gz"),
+            file=gzfile("/mnt/vol/pheweb.tsv.gz"),
             quote=FALSE,
             sep="\t",
             row.names=FALSE,
             na="")
           
-          noquote("Pheweb data saved in combined_annotated_summary.pheweb.tsv.gz")
+          noquote("Pheweb data saved in pheweb.tsv.gz")
           
           noquote("All done!")
         volumeMounts:
@@ -752,11 +873,11 @@ spec:
       outputs:
         artifacts:
           - name: pheweb_tsv 
-            path: "/mnt/vol/combined_annotated_summary.pheweb.tsv.gz"
+            path: "/mnt/vol/pheweb.tsv.gz"
             archive:
               none: {}
             s3:
-              key: "{{workflow.name}}/combined_annotated_summary.pheweb.tsv.gz"
+              key: "{{workflow.name}}/pheweb.tsv.gz"
   
     - name: create-pheweb-json
       inputs:
